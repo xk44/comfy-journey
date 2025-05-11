@@ -4,30 +4,18 @@ import './App.css';
 
 // Components
 import Sidebar from './components/Sidebar';
-import Toast from './components/Toast';
 
 // Pages
-import ParametersPage from './pages/ParametersPage';
+import CreatePage from './pages/CreatePage';
+import ExplorePage from './pages/ExplorePage';
 import EditorPage from './pages/EditorPage';
+import ParametersPage from './pages/ParametersPage';
+import WorkflowsPage from './pages/WorkflowsPage';
 
 // Context
 import { AuthProvider } from './contexts/AuthContext';
 
 // Placeholder components for routes we haven't implemented yet
-const CreatePage = () => (
-  <div className="page-content">
-    <h1>Create</h1>
-    <p>This is the Create page placeholder.</p>
-  </div>
-);
-
-const ExplorePage = () => (
-  <div className="page-content">
-    <h1>Explore</h1>
-    <p>This is the Explore page placeholder.</p>
-  </div>
-);
-
 const GalleryPage = () => (
   <div className="page-content">
     <h1>Gallery</h1>
@@ -39,13 +27,6 @@ const AdvancedEditorPage = () => (
   <div className="page-content">
     <h1>Advanced Editor</h1>
     <p>This is the Advanced Editor page placeholder.</p>
-  </div>
-);
-
-const WorkflowsPage = () => (
-  <div className="page-content">
-    <h1>Workflows</h1>
-    <p>This is the Workflows page placeholder.</p>
   </div>
 );
 
