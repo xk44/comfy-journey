@@ -85,6 +85,17 @@ const HomePage = () => {
         }
       };
       loadCustomActions();
+
+      // Load workflows for executing custom actions
+      const loadWorkflows = async () => {
+        try {
+          const data = await workflowService.getWorkflows();
+          setWorkflows(data || []);
+        } catch (error) {
+          console.error("Error loading workflows:", error);
+        }
+      };
+      loadWorkflows();
     }
   }, [currentUser]);
 
