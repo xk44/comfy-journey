@@ -510,7 +510,8 @@ input:focus, textarea:focus, select:focus {
 
 .image-sharing-options {
   display: flex;
-  gap: var(--mj-spacing-xs);
+  flex-wrap: wrap;
+  gap: var(--mj-spacing-sm);
 }
 
 .sharing-button {
@@ -519,7 +520,7 @@ input:focus, textarea:focus, select:focus {
   gap: var(--mj-spacing-xs);
   background-color: var(--mj-bg-tertiary);
   color: var(--mj-text-secondary);
-  border: none;
+  border: 1px solid var(--mj-border-color);
   border-radius: var(--mj-border-radius);
   padding: var(--mj-spacing-xs) var(--mj-spacing-sm);
   font-size: 0.8rem;
@@ -535,6 +536,11 @@ input:focus, textarea:focus, select:focus {
 .sharing-button:hover {
   background-color: var(--mj-bg-hover);
   color: var(--mj-text-primary);
+}
+
+.sharing-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .clear-button {
