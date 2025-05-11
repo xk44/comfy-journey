@@ -1,233 +1,189 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import Toast from '../components/Toast';
 
 const GalleryPage = () => {
-  const { currentUser } = useAuth();
-  const navigate = useNavigate();
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filteredImages, setFilteredImages] = useState([]);
   const [toast, setToast] = useState(null);
+  const [filter, setFilter] = useState('all');
+  
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
   
   useEffect(() => {
-    // Load saved images from localStorage
-    const loadImages = () => {
+    const fetchImages = async () => {
       try {
         setLoading(true);
-        let savedImages = [];
         
-        if (currentUser) {
-          // If logged in, get user-specific images
-          savedImages = JSON.parse(localStorage.getItem('savedImages') || '[]');
-        } else {
-          // If not logged in, show demo images
-          savedImages = [
-            {
-              id: 'demo1',
-              url: 'https://replicate.delivery/pbxt/4kw2JSufHBnKI1kUQCB7fHEspWh2fvzo3loD9CplCFYz1BiJA/out.png',
-              prompt: 'A cosmic flower blooming in space, surrounded by nebulae',
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'demo2',
-              url: 'https://replicate.delivery/pbxt/AFcQQmGjG5ubgCIUiLrsmVSLA7cdlqcWKXr5FKnClRgx94QIA/out-0.png',
-              prompt: 'Cyberpunk city streets at night with neon lights',
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'demo3',
-              url: 'https://replicate.delivery/pbxt/VKrhDKbevFnXKkI39U8mTsHdV8awskzFVefGdNKPzgRw7prQA/out-0.png',
-              prompt: 'Fantasy landscape with floating islands and waterfalls',
-              createdAt: new Date().toISOString()
-            }
-          ];
-        }
+        // For demo purposes, we'll use mock data
+        const mockImages = [
+          {
+            id: '1',
+            url: 'https://source.unsplash.com/random/500x500/?landscape',
+            prompt: 'Beautiful mountain landscape with lake and trees',
+            createdAt: '2023-05-10T08:30:00Z',
+            favorite: true
+          },
+          {
+            id: '2',
+            url: 'https://source.unsplash.com/random/500x500/?portrait',
+            prompt: 'Portrait of a young woman with long hair, soft lighting',
+            createdAt: '2023-05-09T14:45:00Z',
+            favorite: false
+          },
+          {
+            id: '3',
+            url: 'https://source.unsplash.com/random/500x500/?city',
+            prompt: 'Cyberpunk cityscape at night with neon lights and rain',
+            createdAt: '2023-05-08T22:15:00Z',
+            favorite: true
+          },
+          {
+            id: '4',
+            url: 'https://source.unsplash.com/random/500x500/?food',
+            prompt: 'Gourmet meal beautifully plated on a black ceramic dish',
+            createdAt: '2023-05-07T19:20:00Z',
+            favorite: false
+          },
+          {
+            id: '5',
+            url: 'https://source.unsplash.com/random/500x500/?abstract',
+            prompt: 'Abstract art with vibrant colors and geometric shapes',
+            createdAt: '2023-05-06T11:10:00Z',
+            favorite: true
+          },
+          {
+            id: '6',
+            url: 'https://source.unsplash.com/random/500x500/?animal',
+            prompt: 'Majestic tiger in the jungle, closeup portrait',
+            createdAt: '2023-05-05T16:35:00Z',
+            favorite: false
+          }
+        ];
         
-        // Sort by created date, newest first
-        savedImages.sort((a, b) => {
-          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-        });
-        
-        setImages(savedImages);
-        setFilteredImages(savedImages);
-      } catch (error) {
-        console.error('Error loading images:', error);
-        showToast('Failed to load gallery images', 'error');
-      } finally {
+        setImages(mockImages);
         setLoading(false);
+      } catch (error) {
+        console.error('Error fetching images:', error);
+        setLoading(false);
+        showToast('Failed to load images. Please try again.', 'error');
       }
     };
     
-    loadImages();
-  }, [currentUser]);
+    fetchImages();
+  }, []);
   
-  // Filter images based on search query
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredImages(images);
-      return;
-    }
-    
-    const filtered = images.filter(image => {
-      const prompt = image.prompt || image.meta?.prompt || '';
-      return prompt.toLowerCase().includes(searchQuery.toLowerCase());
-    });
-    
-    setFilteredImages(filtered);
-  }, [searchQuery, images]);
-  
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
+  const handleImageClick = (image) => {
+    // Navigate to editor with the selected image
+    navigate('/editor', { state: { image } });
   };
   
-  const handleUseImage = (image) => {
-    navigate('/', { state: { useImage: image } });
-    showToast('Image loaded to Create page', 'success');
+  const handleToggleFavorite = (id) => {
+    setImages(prevImages => prevImages.map(img => 
+      img.id === id ? { ...img, favorite: !img.favorite } : img
+    ));
   };
   
-  const handleEditImage = (image) => {
-    navigate('/editor', { state: { editImage: image } });
-    showToast('Image loaded to Editor', 'success');
-  };
-  
-  const handleDeleteImage = (imageId) => {
-    if (!currentUser) {
-      showToast('Login to manage your gallery', 'error');
-      return;
-    }
-    
+  const handleDeleteImage = (id) => {
     if (window.confirm('Are you sure you want to delete this image?')) {
-      try {
-        const updatedImages = images.filter(img => img.id !== imageId);
-        setImages(updatedImages);
-        setFilteredImages(updatedImages.filter(img => {
-          const prompt = img.prompt || img.meta?.prompt || '';
-          return searchQuery ? prompt.toLowerCase().includes(searchQuery.toLowerCase()) : true;
-        }));
-        
-        localStorage.setItem('savedImages', JSON.stringify(updatedImages));
-        showToast('Image deleted from gallery', 'success');
-      } catch (error) {
-        console.error('Error deleting image:', error);
-        showToast('Failed to delete image', 'error');
-      }
+      setImages(prevImages => prevImages.filter(img => img.id !== id));
+      showToast('Image deleted successfully', 'success');
     }
   };
   
-  const showToast = (message, type = "info") => {
+  const showToast = (message, type = 'info') => {
     setToast({ message, type });
-    
-    // Auto dismiss after 5 seconds
-    setTimeout(() => {
-      setToast(null);
-    }, 5000);
   };
+  
+  const clearToast = () => {
+    setToast(null);
+  };
+  
+  const filteredImages = filter === 'all' 
+    ? images 
+    : filter === 'favorites' 
+      ? images.filter(img => img.favorite)
+      : images;
   
   return (
     <div className="gallery-page">
       {toast && (
-        <div className={`toast ${toast.type}`}>
-          <div className="toast-content">
-            <p>{toast.message}</p>
-          </div>
-          <button className="toast-close" onClick={() => setToast(null)}>×</button>
-        </div>
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={clearToast} 
+        />
       )}
       
       <div className="gallery-header">
         <h1>My Gallery</h1>
-        <p>{currentUser ? `${currentUser.name}'s personal gallery` : 'Login to save images to your gallery'}</p>
         
-        <div className="search-bar">
-          <input
-            type="text"
-            placeholder="Search by prompt..."
-            value={searchQuery}
-            onChange={handleSearchChange}
-          />
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="search-icon">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-          </svg>
+        <div className="gallery-filters">
+          <button 
+            className={`filter-button ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => setFilter('all')}
+          >
+            All Images
+          </button>
+          <button 
+            className={`filter-button ${filter === 'favorites' ? 'active' : ''}`}
+            onClick={() => setFilter('favorites')}
+          >
+            Favorites
+          </button>
         </div>
       </div>
       
       {loading ? (
-        <div className="loading-indicator">
+        <div className="loading-container">
           <div className="spinner"></div>
-          <p>Loading your gallery...</p>
         </div>
       ) : filteredImages.length === 0 ? (
-        <div className="empty-gallery">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="empty-icon">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-          </svg>
-          {searchQuery ? (
-            <p>No images found matching "{searchQuery}"</p>
-          ) : (
-            <>
-              <p>Your gallery is empty</p>
-              {currentUser ? (
-                <button 
-                  className="primary-button"
-                  onClick={() => navigate('/explore')}
-                >
-                  Browse the Explore page
-                </button>
-              ) : (
-                <button 
-                  className="primary-button"
-                  onClick={() => navigate('/settings')}
-                >
-                  Login to save images
-                </button>
-              )}
-            </>
-          )}
+        <div className="empty-state">
+          <h2>No images found</h2>
+          <p>{filter === 'favorites' ? 'You have no favorite images yet.' : 'Your gallery is empty.'}</p>
+          <button className="create-button" onClick={() => navigate('/')}>Create Images</button>
         </div>
       ) : (
         <div className="gallery-grid">
           {filteredImages.map(image => (
-            <div key={image.id} className="gallery-image-card">
-              <img 
-                src={image.url} 
-                alt={image.prompt || image.meta?.prompt || 'Gallery image'} 
-              />
-              <div className="image-info">
-                <p className="image-prompt">
-                  {image.prompt || image.meta?.prompt || 'No prompt available'}
-                </p>
-                <div className="image-actions">
+            <div key={image.id} className="gallery-card">
+              <div className="gallery-image-container" onClick={() => handleImageClick(image)}>
+                <img 
+                  src={image.url} 
+                  alt={image.prompt} 
+                  className="gallery-image"
+                  loading="lazy"
+                />
+              </div>
+              
+              <div className="gallery-image-info">
+                <div className="gallery-prompt">{image.prompt.substring(0, 50)}...</div>
+                
+                <div className="gallery-actions">
                   <button 
-                    className="image-action"
-                    onClick={() => handleUseImage(image)}
-                    title="Use in Create"
+                    className={`favorite-button ${image.favorite ? 'favorited' : ''}`}
+                    onClick={() => handleToggleFavorite(image.id)}
+                    title={image.favorite ? 'Remove from favorites' : 'Add to favorites'}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-                    </svg>
-                    Use
+                    {image.favorite ? '★' : '☆'}
                   </button>
+                  
                   <button 
-                    className="image-action"
-                    onClick={() => handleEditImage(image)}
-                    title="Edit in Editor"
+                    className="edit-button"
+                    onClick={() => handleImageClick(image)}
+                    title="Edit image"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                    </svg>
                     Edit
                   </button>
+                  
                   <button 
-                    className="image-action delete-action"
+                    className="delete-button"
                     onClick={() => handleDeleteImage(image.id)}
-                    title="Delete from Gallery"
-                    disabled={!currentUser}
+                    title="Delete image"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                    </svg>
                     Delete
                   </button>
                 </div>
