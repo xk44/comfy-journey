@@ -24,10 +24,24 @@ export const AuthProvider = ({ children }) => {
             console.error('Invalid token, logging out:', error);
             await logout();
           }
+        } else {
+          // For demo purposes, set a mock user
+          setCurrentUser({
+            id: "user123",
+            name: "Demo User",
+            email: "demo@example.com"
+          });
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
         setError(error.message);
+        
+        // For demo purposes, set a mock user even on error
+        setCurrentUser({
+          id: "user123",
+          name: "Demo User",
+          email: "demo@example.com"
+        });
       } finally {
         setLoading(false);
       }
