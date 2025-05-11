@@ -3,116 +3,93 @@ import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 
 const ParametersPage = () => {
-  const [parameters, setParameters] = useState({
-    steps: 20,
-    cfg_scale: 7,
-    width: 512,
-    height: 512,
-    sampler: 'Euler a',
-    seed: -1,
+  const [parameters, setParameters] = useState([
+    { 
+      id: "param1", 
+      code: "--ar", 
+      nodeId: "node1", 
+      parameter: "aspect_ratio", 
+      template: "width:height", 
+      description: "Set aspect ratio (e.g., --ar 16:9)" 
+    },
+    { 
+      id: "param2", 
+      code: "--style", 
+      nodeId: "node2", 
+      parameter: "style_preset", 
+      template: "{value}", 
+      description: "Set style preset (e.g., --style photorealistic)" 
+    }
+  ]);
+  
+  const [newParameter, setNewParameter] = useState({
+    code: "",
+    nodeId: "",
+    parameter: "",
+    template: "",
+    description: ""
   });
-  const [presets, setPresets] = useState([]);
-  const [newPresetName, setNewPresetName] = useState('');
+  
   const [toast, setToast] = useState(null);
   const { currentUser } = useAuth();
-
+  
   useEffect(() => {
-    // Load presets
-    const loadPresets = async () => {
-      try {
-        // Mocked presets for demonstration
-        setPresets([
-          {
-            id: "preset1",
-            name: "Default",
-            steps: 20,
-            cfg_scale: 7,
-            width: 512,
-            height: 512,
-            sampler: "Euler a",
-            seed: -1,
-          },
-          {
-            id: "preset2",
-            name: "High Quality",
-            steps: 50,
-            cfg_scale: 7.5,
-            width: 768,
-            height: 768,
-            sampler: "DPM++ 2M Karras",
-            seed: -1,
-          },
-          {
-            id: "preset3",
-            name: "Fast Generation",
-            steps: 10,
-            cfg_scale: 7,
-            width: 512,
-            height: 512,
-            sampler: "DPM Fast",
-            seed: -1,
-          }
-        ]);
-      } catch (error) {
-        console.error("Error loading presets:", error);
-      }
-    };
-
-    loadPresets();
+    // In a real app, this would fetch parameters from the backend
+    // For now, we'll use the mock data set above
   }, []);
-
-  const handleSavePreset = () => {
-    if (!newPresetName.trim()) {
-      showToast('Please enter a preset name', 'error');
-      return;
-    }
-
-    const newPreset = {
-      id: `preset${Date.now()}`,
-      name: newPresetName,
-      ...parameters
-    };
-
-    setPresets([...presets, newPreset]);
-    setNewPresetName('');
-    showToast('Preset saved successfully!', 'success');
-  };
-
-  const handleLoadPreset = (preset) => {
-    setParameters(preset);
-    showToast(`Preset "${preset.name}" loaded`, 'success');
-  };
-
-  const handleDeletePreset = (id) => {
-    setPresets(presets.filter(preset => preset.id !== id));
-    showToast('Preset deleted', 'success');
-  };
-
+  
   const handleParameterChange = (e) => {
     const { name, value } = e.target;
-    let parsedValue = value;
-
-    // Convert numeric values
-    if (name !== 'sampler') {
-      parsedValue = name === 'seed' ? parseInt(value) : parseFloat(value);
-    }
-
-    setParameters({
-      ...parameters,
-      [name]: parsedValue
+    setNewParameter({
+      ...newParameter,
+      [name]: value
     });
   };
-
+  
+  const handleAddParameter = () => {
+    if (!newParameter.code || !newParameter.nodeId || !newParameter.parameter) {
+      showToast("Please fill in all required fields", "error");
+      return;
+    }
+    
+    const paramId = `param${Date.now()}`;
+    const newParams = [...parameters, { ...newParameter, id: paramId }];
+    setParameters(newParams);
+    
+    // Reset the form
+    setNewParameter({
+      code: "",
+      nodeId: "",
+      parameter: "",
+      template: "",
+      description: ""
+    });
+    
+    showToast("Parameter added successfully", "success");
+  };
+  
+  const handleDeleteParameter = (id) => {
+    if (window.confirm("Are you sure you want to delete this parameter?")) {
+      setParameters(parameters.filter(p => p.id !== id));
+      showToast("Parameter deleted", "success");
+    }
+  };
+  
+  const handleEditParameter = (id) => {
+    // For simplicity, we'll show an alert that this feature is coming soon
+    showToast("Edit functionality coming soon", "info");
+  };
+  
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
   };
-
+  
   const clearToast = () => {
     setToast(null);
   };
-
+  
   return (
-    <div className="parameters-page">
+    <div className="parameter-manager">
       {toast && (
         <Toast 
           message={toast.message} 
@@ -122,156 +99,134 @@ const ParametersPage = () => {
       )}
       
       <div className="page-header">
-        <h1>Generation Parameters</h1>
-        <p>Configure and save parameter presets for image generation</p>
+        <h1>Parameter Manager</h1>
+        <p>Create and manage parameter mappings for ComfyUI nodes</p>
       </div>
-
-      <div className="parameters-container">
+      
+      <div className="add-parameter-section">
+        <h2>Add New Parameter</h2>
+        
         <div className="parameter-form">
-          <h2>Current Parameters</h2>
-          
-          <div className="form-group">
-            <label htmlFor="steps">Steps:</label>
-            <input 
-              type="number" 
-              id="steps" 
-              name="steps"
-              min="1" 
-              max="150" 
-              value={parameters.steps} 
-              onChange={handleParameterChange} 
-            />
-            <span className="input-help">Higher values = more precise results, but slower generation</span>
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="cfg_scale">CFG Scale:</label>
-            <input 
-              type="number" 
-              id="cfg_scale" 
-              name="cfg_scale"
-              min="1" 
-              max="30" 
-              step="0.5" 
-              value={parameters.cfg_scale} 
-              onChange={handleParameterChange} 
-            />
-            <span className="input-help">How strictly to follow the prompt (higher = more faithful)</span>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="code">Parameter Code</label>
+              <input 
+                type="text" 
+                id="code" 
+                name="code"
+                value={newParameter.code}
+                onChange={handleParameterChange}
+                placeholder="e.g., --ar"
+              />
+              <span className="help-text">The code users will type in prompts</span>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="nodeId">Node ID</label>
+              <input 
+                type="text" 
+                id="nodeId" 
+                name="nodeId"
+                value={newParameter.nodeId}
+                onChange={handleParameterChange}
+                placeholder="ComfyUI node ID"
+              />
+              <span className="help-text">ID of the node in ComfyUI workflow</span>
+            </div>
           </div>
           
           <div className="form-row">
-            <div className="form-group half">
-              <label htmlFor="width">Width:</label>
+            <div className="form-group">
+              <label htmlFor="parameter">Parameter</label>
               <input 
-                type="number" 
-                id="width" 
-                name="width"
-                min="128" 
-                max="2048" 
-                step="64" 
-                value={parameters.width} 
-                onChange={handleParameterChange} 
+                type="text" 
+                id="parameter" 
+                name="parameter"
+                value={newParameter.parameter}
+                onChange={handleParameterChange}
+                placeholder="Node parameter name"
               />
+              <span className="help-text">The parameter name in the ComfyUI node</span>
             </div>
             
-            <div className="form-group half">
-              <label htmlFor="height">Height:</label>
+            <div className="form-group">
+              <label htmlFor="template">Value Template</label>
               <input 
-                type="number" 
-                id="height" 
-                name="height"
-                min="128" 
-                max="2048" 
-                step="64" 
-                value={parameters.height} 
-                onChange={handleParameterChange} 
+                type="text" 
+                id="template" 
+                name="template"
+                value={newParameter.template}
+                onChange={handleParameterChange}
+                placeholder="e.g., width:height"
               />
+              <span className="help-text">Format for the parameter value</span>
             </div>
           </div>
           
           <div className="form-group">
-            <label htmlFor="sampler">Sampler:</label>
-            <select 
-              id="sampler" 
-              name="sampler"
-              value={parameters.sampler} 
-              onChange={handleParameterChange}
-            >
-              <option value="Euler a">Euler a</option>
-              <option value="Euler">Euler</option>
-              <option value="DPM++ 2M Karras">DPM++ 2M Karras</option>
-              <option value="DPM Fast">DPM Fast</option>
-              <option value="DDIM">DDIM</option>
-              <option value="LMS">LMS</option>
-            </select>
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="seed">Seed:</label>
-            <input 
-              type="number" 
-              id="seed" 
-              name="seed"
-              value={parameters.seed} 
-              onChange={handleParameterChange} 
-            />
-            <span className="input-help">-1 for random seed, or specify for reproducible results</span>
-          </div>
-          
-          <div className="save-preset-container">
+            <label htmlFor="description">Description</label>
             <input 
               type="text" 
-              placeholder="Preset Name" 
-              value={newPresetName} 
-              onChange={(e) => setNewPresetName(e.target.value)} 
+              id="description" 
+              name="description"
+              value={newParameter.description}
+              onChange={handleParameterChange}
+              placeholder="Parameter description"
             />
+            <span className="help-text">What this parameter does (e.g., "Set aspect ratio")</span>
+          </div>
+          
+          <div className="form-actions">
             <button 
-              className="save-button"
-              onClick={handleSavePreset}
-              disabled={!newPresetName.trim()}
+              className="add-parameter-button"
+              onClick={handleAddParameter}
             >
-              Save as Preset
+              Add Parameter
             </button>
           </div>
         </div>
+      </div>
+      
+      <div className="existing-parameters">
+        <h2>Existing Parameters</h2>
         
-        <div className="presets-container">
-          <h2>Saved Presets</h2>
-          
-          {presets.length > 0 ? (
-            <div className="presets-list">
-              {presets.map(preset => (
-                <div key={preset.id} className="preset-card">
-                  <h3>{preset.name}</h3>
-                  <div className="preset-details">
-                    <div>Steps: {preset.steps}</div>
-                    <div>CFG: {preset.cfg_scale}</div>
-                    <div>Size: {preset.width}×{preset.height}</div>
-                    <div>Sampler: {preset.sampler}</div>
-                  </div>
-                  <div className="preset-actions">
-                    <button 
-                      className="load-button"
-                      onClick={() => handleLoadPreset(preset)}
-                    >
-                      Load
-                    </button>
-                    <button 
-                      className="delete-button"
-                      onClick={() => handleDeletePreset(preset.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <p>No presets saved yet. Configure parameters and save them as presets for quick access.</p>
-            </div>
-          )}
-        </div>
+        <table className="parameters-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Node ID</th>
+              <th>Parameter</th>
+              <th>Template</th>
+              <th>Description</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {parameters.map(param => (
+              <tr key={param.id}>
+                <td><code>{param.code}</code></td>
+                <td>{param.nodeId}</td>
+                <td>{param.parameter}</td>
+                <td>{param.template}</td>
+                <td>{param.description}</td>
+                <td className="parameter-actions">
+                  <button 
+                    className="edit-button"
+                    onClick={() => handleEditParameter(param.id)}
+                  >
+                    Edit
+                  </button>
+                  <button 
+                    className="delete-button"
+                    onClick={() => handleDeleteParameter(param.id)}
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
