@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Image, Line, Rect, Transformer } from 'react-konva';
 import useImage from 'use-image';
+import Konva from 'konva';
 
 const AdvancedEditor = ({
   image,
