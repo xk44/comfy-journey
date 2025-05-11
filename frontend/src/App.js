@@ -45,6 +45,7 @@ const HomePage = () => {
   const [prompt, setPrompt] = useState("");
   const [parameters, setParameters] = useState("");
   const [customActions, setCustomActions] = useState([]);
+  const [workflows, setWorkflows] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [images, setImages] = useState([]);
   const [models, setModels] = useState([
