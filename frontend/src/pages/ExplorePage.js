@@ -487,7 +487,7 @@ const ExplorePage = () => {
         </div>
       )}
       
-      {hasMore && !loading && images.length > 0 && (
+      {hasMore && !loading && (activeTab === 'images' ? images.length > 0 : models.length > 0) && (
         <div className="load-more">
           <button 
             onClick={() => activeTab === 'images' ? fetchImages() : fetchModels()}
