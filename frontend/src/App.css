@@ -604,97 +604,81 @@ body {
   }
 }
 
-/* EditorPage Styles */
-.editor-page {
+/* Advanced Editor Styles */
+.advanced-editor-page {
   display: flex;
+  flex-direction: column;
   height: calc(100vh - 48px);
 }
 
-.editor-sidebar {
-  width: 250px;
-  background-color: var(--color-bg-secondary);
-  border-radius: var(--border-radius);
-  padding: var(--spacing-md);
-  margin-right: var(--spacing-md);
-  overflow-y: auto;
-}
-
-.editor-section {
-  margin-bottom: var(--spacing-lg);
-}
-
-.editor-section h3 {
-  margin-bottom: var(--spacing-md);
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.layers-panel {
+.editor-header {
   display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
 }
 
-.layer-item {
+.editor-controls {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: center;
+}
+
+.workflow-selector {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm);
-  border-radius: var(--border-radius);
-  background-color: var(--color-bg-tertiary);
+  gap: var(--spacing-md);
 }
 
-.add-layer-button {
-  margin-top: var(--spacing-sm);
-  padding: var(--spacing-sm);
-  background-color: var(--color-bg-tertiary);
-  border: 1px dashed #3a3d45;
-  border-radius: var(--border-radius);
+.workflow-selector label {
   color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.add-layer-button:hover {
-  background-color: #2f3136;
+.workflow-selector select {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-bg-tertiary);
+  border: 1px solid #3a3d45;
+  border-radius: var(--border-radius);
   color: var(--color-text-primary);
+  min-width: 200px;
 }
 
-.tools-panel {
+.advanced-editor {
   display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+.editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-tertiary);
+  border-bottom: 1px solid #3a3d45;
   flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+.tool-group {
+  display: flex;
   gap: var(--spacing-sm);
 }
 
 .tool-button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-sm);
-  background-color: var(--color-bg-tertiary);
+  background-color: var(--color-bg-secondary);
   border: none;
   border-radius: var(--border-radius);
+  padding: var(--spacing-sm);
   color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
-  width: calc(50% - 4px);
-}
-
-.tool-button.active {
-  background-color: var(--color-accent);
-  color: white;
-}
-
-.tool-button:hover {
-  background-color: #2f3136;
-  color: var(--color-text-primary);
-}
-
-.tool-button.active:hover {
-  background-color: var(--color-accent-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tool-button svg {
@@ -702,66 +686,130 @@ body {
   height: 20px;
 }
 
-.tool-button span {
-  font-size: 0.8rem;
+.tool-button:hover {
+  background-color: #2f3136;
+  color: var(--color-text-primary);
+}
+
+.tool-button.active {
+  background-color: var(--color-accent);
+  color: white;
 }
 
 .brush-size-control {
-  margin-top: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
 }
 
-.brush-size-control label {
-  display: block;
-  margin-bottom: var(--spacing-xs);
-  font-size: 0.85rem;
+.layer-controls {
+  display: flex;
+  gap: var(--spacing-md);
 }
 
-.brush-size-control input {
-  width: 100%;
+.layer-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
 }
 
-.editor-main {
-  flex: 1;
-  background-color: var(--color-bg-secondary);
+.action-buttons {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.editor-button {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
   border-radius: var(--border-radius);
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.editor-canvas {
+.editor-button:hover {
+  background-color: #2f3136;
+}
+
+.editor-button.primary-button {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.editor-button.primary-button:hover {
+  background-color: var(--color-accent-hover);
+}
+
+.editor-button.danger-button {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-error);
+}
+
+.editor-button.danger-button:hover {
+  background-color: rgba(255, 92, 92, 0.2);
+}
+
+.editor-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editor-canvas-container {
+  flex: 1;
   position: relative;
-  height: 100%;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  overflow: hidden;
   background-color: #18191c;
 }
 
-.editor-canvas img {
-  max-height: 100%;
-  max-width: 100%;
+.editor-prompt-container {
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-tertiary);
+  border-top: 1px solid #3a3d45;
 }
 
-.empty-canvas {
+.editor-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.upload-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-md);
-  width: 100%;
   padding: var(--spacing-xl);
+  gap: var(--spacing-xl);
+  height: 100%;
 }
 
-.editor-controls {
-  position: fixed;
-  bottom: var(--spacing-lg);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80%;
-  z-index: 100;
+.upload-container h2 {
+  margin-bottom: var(--spacing-md);
+}
+
+.editor-help {
+  max-width: 600px;
+  background-color: var(--color-bg-tertiary);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius);
+  margin-top: var(--spacing-xl);
+}
+
+.editor-help h3 {
+  margin-bottom: var(--spacing-md);
+}
+
+.editor-help ol {
+  padding-left: var(--spacing-xl);
+}
+
+.editor-help li {
+  margin-bottom: var(--spacing-sm);
+}
+
+.main-editor {
+  flex: 1;
 }
 
 /* WorkflowsPage Styles */
