@@ -44,6 +44,7 @@ const Toast = ({ message, type, onClose }) => {
 const HomePage = () => {
   const [prompt, setPrompt] = useState("");
   const [parameters, setParameters] = useState("");
+  const [customActions, setCustomActions] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [images, setImages] = useState([]);
   const [models, setModels] = useState([
