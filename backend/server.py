@@ -65,14 +65,16 @@ class ParameterMapping(BaseModel):
     code: str
     node_id: str
     param_name: str
-    value_template: str
-    description: str
+    value_template: str = "{value}"
+    description: str = ""
+    workflow_id: Optional[str] = None
 
 class WorkflowMapping(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     action_name: str
     workflow_id: str
-    description: str
+    description: str = ""
+    data: Optional[Dict[str, Any]] = None
 
 class GenerateImageRequest(BaseModel):
     prompt: str
@@ -184,7 +186,7 @@ async def generate_image(request: GenerateImageRequest):
             "parameters": request.parameters or {},
             "workflow_id": request.workflow_id
         }
-        
+         
         result = await comfy_client.queue_prompt(workflow_data)
         return result
     except Exception as e:
@@ -226,6 +228,10 @@ async def create_parameter_mapping(mapping: ParameterMapping):
 @api_router.get("/parameters", response_model=List[ParameterMapping])
 async def get_parameter_mappings():
     mappings = await db.parameter_mappings.find().to_list(1000)
+    for mapping in mappings:
+        mapping["id"] = str(mapping.get("_id", mapping.get("id", "")))
+        if "_id" in mapping:
+            del mapping["_id"]
     return [ParameterMapping(**mapping) for mapping in mappings]
 
 @api_router.put("/parameters/{param_id}", response_model=ParameterMapping)
@@ -252,6 +258,10 @@ async def create_workflow_mapping(mapping: WorkflowMapping):
 @api_router.get("/workflows", response_model=List[WorkflowMapping])
 async def get_workflow_mappings():
     mappings = await db.workflow_mappings.find().to_list(1000)
+    for mapping in mappings:
+        mapping["id"] = str(mapping.get("_id", mapping.get("id", "")))
+        if "_id" in mapping:
+            del mapping["_id"]
     return [WorkflowMapping(**mapping) for mapping in mappings]
 
 @api_router.put("/workflows/{workflow_id}", response_model=WorkflowMapping)
@@ -312,12 +322,12 @@ async def upload_image(
         ext = file.filename.split('.')[-1]
         filename = f"{uuid.uuid4()}.{ext}"
         file_path = UPLOADS_DIR / filename
-        
+         
         # Save the uploaded file
         async with aiofiles.open(file_path, 'wb') as out_file:
             content = await file.read()
             await out_file.write(content)
-        
+         
         # Save record to database if user is authenticated
         if current_user:
             # Create a record in the database
@@ -330,7 +340,7 @@ async def upload_image(
                 "created_at": datetime.utcnow()
             }
             await db.user_uploads.insert_one(image_record)
-        
+         
         # Return the URL to the uploaded file
         return {
             "filename": filename,
@@ -359,24 +369,24 @@ async def save_external_image(
         ext = url.split('.')[-1].split('?')[0]
         if ext not in ['jpg', 'jpeg', 'png', 'gif']:
             ext = 'jpg'  # Default extension if not recognized
-        
+         
         filename = f"{uuid.uuid4()}.{ext}"
         file_path = GENERATED_DIR / filename
-        
+         
         # Download and save the image in the background
         async def download_image():
             try:
                 async with httpx.AsyncClient() as client:
                     response = await client.get(url)
                     response.raise_for_status()
-                    
+                     
                     # Save the image
                     async with aiofiles.open(file_path, 'wb') as out_file:
                         await out_file.write(response.content)
-                    
+                     
                     # Get actual user_id - from auth user if available
                     actual_user_id = current_user.id if current_user else (user_id or "anonymous")
-                    
+                     
                     # Save metadata to database
                     image_record = {
                         "id": str(uuid.uuid4()),
@@ -389,9 +399,9 @@ async def save_external_image(
                     await db.saved_images.insert_one(image_record)
             except Exception as e:
                 logger.error(f"Background task error: {e}")
-                
+                 
         background_tasks.add_task(download_image)
-        
+         
         return {
             "message": "Image download started",
             "filename": filename,
@@ -438,7 +448,7 @@ async def delete_image(image_id: str):
         image = await db.saved_images.find_one({"id": image_id})
         if not image:
             raise HTTPException(status_code=404, detail="Image not found")
-        
+         
         # Delete the file if it exists
         url = image.get("url", "")
         if url.startswith("/api/generated/"):
@@ -446,10 +456,10 @@ async def delete_image(image_id: str):
             file_path = GENERATED_DIR / filename
             if file_path.exists():
                 file_path.unlink()
-        
+         
         # Delete the database record
         await db.saved_images.delete_one({"id": image_id})
-        
+         
         return {"message": "Image deleted successfully"}
     except HTTPException:
         raise
@@ -462,9 +472,9 @@ async def generic_exception_handler(request, exc):
     """Global exception handler for better error reporting."""
     error_id = str(uuid.uuid4())
     error_type = type(exc).__name__
-    
+     
     logger.error(f"Unhandled exception {error_id}: {exc}", exc_info=True)
-    
+     
     return JSONResponse(
         status_code=500,
         content=ErrorResponse(
