@@ -49,7 +49,15 @@ const HomePage = () => {
     if (currentUser) {
       const loadCustomActions = async () => {
         try {
-          const actions = await workflowService.getCustomActions();
+          // In a real app, fetch from API
+          // const actions = await workflowService.getCustomActions();
+          
+          // Mock data for demonstration
+          const actions = [
+            { id: "custom1", name: "Upscale 2x", workflow: "workflow3" },
+            { id: "custom2", name: "Fix Faces", workflow: "workflow2" }
+          ];
+          
           setCustomActions(actions || []);
         } catch (error) {
           console.error("Error loading custom actions:", error);
@@ -60,7 +68,16 @@ const HomePage = () => {
       // Load workflows for executing custom actions
       const loadWorkflows = async () => {
         try {
-          const data = await workflowService.getWorkflows();
+          // In a real app, fetch from API
+          // const data = await workflowService.getWorkflows();
+          
+          // Mock data for demonstration
+          const data = [
+            { id: "workflow1", name: "Stable Diffusion 1.5", description: "Standard text to image workflow" },
+            { id: "workflow2", name: "SDXL Inpainting", description: "Inpainting with SDXL model" },
+            { id: "workflow3", name: "Realistic Upscaler", description: "High quality image upscaling" }
+          ];
+          
           setWorkflows(data || []);
         } catch (error) {
           console.error("Error loading workflows:", error);
