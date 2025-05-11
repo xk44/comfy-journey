@@ -1,24 +1,29 @@
 import React, { useEffect } from 'react';
 
-const Toast = ({ message, type = "info", onClose, duration = 3000 }) => {
+/**
+ * Toast component for displaying messages
+ * @param {Object} props - Component props
+ * @param {string} props.message - Message to display
+ * @param {string} props.type - Type of toast ('info', 'success', 'error', 'warning')
+ * @param {Function} props.onClose - Function to call when closing the toast
+ * @param {number} props.duration - Duration in ms before auto-closing (default: 3000)
+ */
+const Toast = ({ message, type = 'info', onClose, duration = 3000 }) => {
   useEffect(() => {
-    const timeout = setTimeout(() => {
+    // Auto close after duration
+    const timer = setTimeout(() => {
       if (onClose) onClose();
     }, duration);
-    
-    return () => clearTimeout(timeout);
+
+    return () => clearTimeout(timer);
   }, [onClose, duration]);
-  
+
   return (
-    <div className={`toast ${type}`}>
-      <div className="toast-content">
-        <p>{message}</p>
+    <div className={`toast-container`}>
+      <div className={`toast ${type}`}>
+        <span>{message}</span>
+        <button className="toast-close" onClick={onClose}>×</button>
       </div>
-      <button className="toast-close" onClick={onClose}>
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="16" height="16">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
     </div>
   );
 };
