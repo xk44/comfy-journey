@@ -39,7 +39,15 @@ const WorkflowsPage = () => {
     const loadCustomActions = async () => {
       if (currentUser) {
         try {
-          const loadedActions = await workflowService.getCustomActions();
+          // In a real app, get from backend
+          // const loadedActions = await workflowService.getCustomActions();
+          
+          // Mock data for demonstration
+          const loadedActions = [
+            { id: "custom1", name: "Upscale 2x", workflow: "workflow3" },
+            { id: "custom2", name: "Fix Faces", workflow: "workflow2" }
+          ];
+          
           if (loadedActions && loadedActions.length > 0) {
             setCustomActions(loadedActions);
           }
