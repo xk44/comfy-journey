@@ -475,6 +475,9 @@ input:focus, textarea:focus, select:focus {
 }
 
 .custom-action-button {
+  display: flex;
+  align-items: center;
+  gap: var(--mj-spacing-xs);
   background-color: var(--mj-accent);
   color: white;
   border: none;
@@ -483,6 +486,11 @@ input:focus, textarea:focus, select:focus {
   font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.custom-action-button svg {
+  width: 14px;
+  height: 14px;
 }
 
 .custom-action-button:hover {
