@@ -1621,9 +1621,16 @@ body {
   }
   
   .editor-page {
+  display: flex;
+  height: calc(100vh - 48px);
+}
+
+@media (max-width: 768px) {
+  .editor-page {
     flex-direction: column;
     height: auto;
   }
+}
   
   .editor-sidebar {
     width: 100%;
