@@ -1,3 +1,5 @@
+import React, { useState, useRef, useEffect } from 'react';
+
 const ComfyUIEditor = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [comfyuiUrl, setComfyuiUrl] = useState("http://localhost:8188");
