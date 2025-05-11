@@ -465,11 +465,11 @@ const ExplorePage = () => {
                   )}
                   <div className="model-info">
                     <h3>{model.name}</h3>
-                    <p className="model-type">{model.type}</p>
+                    <p className="model-type">{model.type || 'Unknown'}</p>
                     <p className="model-creator">By {model.creator?.username || 'Unknown'}</p>
                     <div className="model-stats">
                       <span>{model.stats?.downloadCount || 0} Downloads</span>
-                      <span>{model.stats?.rating?.toFixed(1) || '0.0'} Rating</span>
+                      <span>{model.stats?.rating ? model.stats.rating.toFixed(1) : '0.0'} Rating</span>
                     </div>
                     <p className="model-description">{model.description ? model.description.substring(0, 100) + '...' : 'No description available'}</p>
                   </div>
