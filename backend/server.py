@@ -118,6 +118,89 @@ async def delete_workflow_mapping(workflow_id: str):
 async def root():
     return {"message": "ComfyUI Frontend API"}
 
+# Add ComfyUI workflow endpoints that were missing
+@api_router.get("/comfyui/workflows")
+async def get_comfyui_workflows():
+    """Get available ComfyUI workflows"""
+    # This is a sample response for the endpoint
+    sample_workflows = [
+        {
+            "id": "workflow1",
+            "name": "Basic Text to Image",
+            "description": "Simple text to image generation workflow",
+            "data": {
+                "nodes": {
+                    "1": {
+                        "id": "1",
+                        "type": "text_encoder",
+                        "title": "Text Encoder",
+                        "properties": {
+                            "prompt": "A beautiful landscape",
+                            "width": 512,
+                            "height": 512,
+                            "steps": 20
+                        }
+                    },
+                    "2": {
+                        "id": "2",
+                        "type": "sampler",
+                        "title": "Sampler",
+                        "properties": {
+                            "sampler_name": "ddim",
+                            "steps": 20,
+                            "cfg": 7.5
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "id": "workflow2",
+            "name": "Inpainting Workflow",
+            "description": "For inpainting masked regions",
+            "data": {
+                "nodes": {
+                    "1": {
+                        "id": "1",
+                        "type": "image_loader",
+                        "title": "Image Loader",
+                        "properties": {
+                            "image_path": "",
+                            "mask_path": "",
+                            "resize_mode": "crop"
+                        }
+                    },
+                    "2": {
+                        "id": "2",
+                        "type": "inpaint_model",
+                        "title": "Inpaint Model",
+                        "properties": {
+                            "prompt": "A beautiful mountain landscape",
+                            "steps": 20,
+                            "cfg": 7.5,
+                            "denoise": 0.8
+                        }
+                    }
+                }
+            }
+        }
+    ]
+    return sample_workflows
+
+@api_router.get("/comfyui/status")
+async def get_comfyui_status():
+    """Get the status of the ComfyUI server"""
+    # This is a sample response for the endpoint
+    return {
+        "status": "running",
+        "version": "1.0.0",
+        "gpu_info": {
+            "name": "Sample GPU",
+            "memory_total": 8192,
+            "memory_used": 2048
+        }
+    }
+
 # Add sample workflow endpoint
 @api_router.get("/sample-workflows")
 async def get_sample_workflows():
