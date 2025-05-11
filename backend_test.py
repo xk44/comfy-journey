@@ -7,7 +7,7 @@ from datetime import datetime
 class ComfyUIBackendTester(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(ComfyUIBackendTester, self).__init__(*args, **kwargs)
-        self.base_url = "https://0f350816-8088-4765-b8f6-12249ceffe51.preview.emergentagent.com/api"
+        self.base_url = "https://0593ca8d-c303-4c00-969a-1c151e30bc1f.preview.emergentagent.com/api"
         self.tests_run = 0
         self.tests_passed = 0
 
