@@ -19,16 +19,17 @@ const LoginForm = ({ onSuccess }) => {
     try {
       if (isLogin) {
         await login(username, password);
+        if (onSuccess) onSuccess('Login successful!', 'success');
       } else {
         if (!name) {
           throw new Error('Please enter your name');
         }
         await register(username, password, name);
+        if (onSuccess) onSuccess('Registration successful!', 'success');
       }
-      
-      if (onSuccess) onSuccess();
     } catch (error) {
       setError(error.message);
+      if (onSuccess) onSuccess(error.message, 'error');
     } finally {
       setLoading(false);
     }
