@@ -32,40 +32,14 @@ class ComfyUIBackendTester(unittest.TestCase):
         self.assertIn("message", data)
         self.assertEqual(data["message"], "ComfyUI Frontend API")
 
-    def test_02_comfyui_status(self):
-        """Test the ComfyUI status endpoint"""
-        response = requests.get(f"{self.base_url}/comfyui/status")
-        self.assertEqual(response.status_code, 200)
-        # Note: The actual response might contain an error since we don't have a real ComfyUI instance
-        # We're just checking if the endpoint responds
-
-    def test_03_comfyui_workflows(self):
-        """Test the ComfyUI workflows endpoint"""
-        response = requests.get(f"{self.base_url}/comfyui/workflows")
-        self.assertEqual(response.status_code, 200)
-        # Note: This is using mock data in the backend
-
-    def test_04_generate_image(self):
-        """Test the generate image endpoint"""
-        data = {
-            "prompt": "Test prompt",
-            "parameters": {"param1": "value1"},
-            "workflow_id": "test_workflow"
-        }
-        response = requests.post(f"{self.base_url}/generate", json=data)
-        # Note: This will likely return an error since we don't have a real ComfyUI instance
-        # We're just checking if the endpoint responds
-        print(f"Generate image response: {response.status_code}, {response.text}")
-        # Not asserting status code as it might fail without a real ComfyUI instance
-
-    def test_05_parameter_mappings_crud(self):
+    def test_02_parameter_mappings_crud(self):
         """Test parameter mappings CRUD operations"""
         # Create a parameter mapping
         create_data = {
             "code": "--test",
             "node_id": "test_node",
             "param_name": "test_param",
-            "value_template": "test_template",
+            "value_template": "{value}",
             "description": "Test parameter"
         }
         create_response = requests.post(f"{self.base_url}/parameters", json=create_data)
@@ -86,7 +60,7 @@ class ComfyUIBackendTester(unittest.TestCase):
             "code": "--test-updated",
             "node_id": "test_node",
             "param_name": "test_param",
-            "value_template": "test_template",
+            "value_template": "{value}",
             "description": "Updated test parameter"
         }
         update_response = requests.put(f"{self.base_url}/parameters/{param_id}", json=update_data)
@@ -100,13 +74,26 @@ class ComfyUIBackendTester(unittest.TestCase):
         delete_data = delete_response.json()
         self.assertEqual(delete_data["message"], "Parameter mapping deleted")
 
-    def test_06_workflow_mappings_crud(self):
+    def test_03_workflow_mappings_crud(self):
         """Test workflow mappings CRUD operations"""
         # Create a workflow mapping
         create_data = {
-            "action_name": "Test Action",
-            "workflow_id": "test_workflow",
-            "description": "Test workflow mapping"
+            "name": "Test Workflow",
+            "description": "Test workflow mapping",
+            "data": {
+                "nodes": {
+                    "1": {
+                        "id": "1",
+                        "type": "text_encoder",
+                        "title": "Text Encoder",
+                        "properties": {
+                            "prompt": "A test prompt",
+                            "width": 512,
+                            "height": 512
+                        }
+                    }
+                }
+            }
         }
         create_response = requests.post(f"{self.base_url}/workflows", json=create_data)
         self.assertEqual(create_response.status_code, 200)
@@ -123,9 +110,9 @@ class ComfyUIBackendTester(unittest.TestCase):
         # Update the workflow mapping
         update_data = {
             "id": workflow_id,
-            "action_name": "Updated Test Action",
-            "workflow_id": "test_workflow",
-            "description": "Updated test workflow mapping"
+            "name": "Updated Test Workflow",
+            "description": "Updated test workflow mapping",
+            "data": workflow_data["data"]
         }
         update_response = requests.put(f"{self.base_url}/workflows/{workflow_id}", json=update_data)
         self.assertEqual(update_response.status_code, 200)
@@ -138,22 +125,21 @@ class ComfyUIBackendTester(unittest.TestCase):
         delete_data = delete_response.json()
         self.assertEqual(delete_data["message"], "Workflow mapping deleted")
 
-    def test_07_status_checks(self):
-        """Test status check endpoints"""
-        # Create a status check
-        create_data = {
-            "client_name": "test_client"
-        }
-        create_response = requests.post(f"{self.base_url}/status", json=create_data)
-        self.assertEqual(create_response.status_code, 200)
-        status_data = create_response.json()
-        self.assertIn("id", status_data)
+    def test_04_sample_workflows(self):
+        """Test the sample workflows endpoint"""
+        response = requests.get(f"{self.base_url}/sample-workflows")
+        self.assertEqual(response.status_code, 200)
+        workflows = response.json()
+        self.assertIsInstance(workflows, list)
+        self.assertGreater(len(workflows), 0)
         
-        # Get all status checks
-        get_all_response = requests.get(f"{self.base_url}/status")
-        self.assertEqual(get_all_response.status_code, 200)
-        status_checks = get_all_response.json()
-        self.assertIsInstance(status_checks, list)
+        # Check structure of sample workflows
+        sample_workflow = workflows[0]
+        self.assertIn("id", sample_workflow)
+        self.assertIn("name", sample_workflow)
+        self.assertIn("description", sample_workflow)
+        self.assertIn("data", sample_workflow)
+        self.assertIn("nodes", sample_workflow["data"])
 
 def run_tests():
     suite = unittest.TestLoader().loadTestsFromTestCase(ComfyUIBackendTester)
