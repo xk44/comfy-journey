@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Body, UploadFile, File, Form
+from fastapi import FastAPI, APIRouter, HTTPException, Body, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -13,6 +13,11 @@ from datetime import datetime
 import httpx
 import json
 import asyncio
+import aiofiles
+import shutil
+import base64
+from io import BytesIO
+from PIL import Image
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -30,6 +35,13 @@ api_router = APIRouter(prefix="/api")
 
 # ComfyUI API configuration
 COMFYUI_BASE_URL = os.environ.get('COMFYUI_BASE_URL', 'http://127.0.0.1:8188')
+
+# Set up directories for storing uploaded and generated images
+UPLOADS_DIR = ROOT_DIR / "uploads"
+UPLOADS_DIR.mkdir(exist_ok=True)
+
+GENERATED_DIR = ROOT_DIR / "generated"
+GENERATED_DIR.mkdir(exist_ok=True)
 
 # Define Models
 class StatusCheck(BaseModel):
