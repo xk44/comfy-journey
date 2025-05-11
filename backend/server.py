@@ -298,7 +298,10 @@ logger = logging.getLogger(__name__)
 
 # New image-related routes
 @api_router.post("/upload-image")
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(
+    file: UploadFile = File(...),
+    current_user: Optional[UserInDB] = Depends(get_current_active_user)
+):
     """Upload an image for processing."""
     try:
         # Generate a unique filename
@@ -310,6 +313,19 @@ async def upload_image(file: UploadFile = File(...)):
         async with aiofiles.open(file_path, 'wb') as out_file:
             content = await file.read()
             await out_file.write(content)
+        
+        # Save record to database if user is authenticated
+        if current_user:
+            # Create a record in the database
+            image_record = {
+                "id": str(uuid.uuid4()),
+                "user_id": current_user.id,
+                "filename": filename,
+                "url": f"/api/uploads/{filename}",
+                "size": os.path.getsize(file_path),
+                "created_at": datetime.utcnow()
+            }
+            await db.user_uploads.insert_one(image_record)
         
         # Return the URL to the uploaded file
         return {
@@ -330,7 +346,8 @@ async def save_external_image(
     url: str = Body(...),
     user_id: Optional[str] = Body(None),
     prompt: Optional[str] = Body(None),
-    metadata: Optional[Dict[str, Any]] = Body(None)
+    metadata: Optional[Dict[str, Any]] = Body(None),
+    current_user: Optional[UserInDB] = Depends(get_current_active_user)
 ):
     """Save an image from an external URL to the local gallery."""
     try:
@@ -353,15 +370,19 @@ async def save_external_image(
                     async with aiofiles.open(file_path, 'wb') as out_file:
                         await out_file.write(response.content)
                     
+                    # Get actual user_id - from auth user if available
+                    actual_user_id = current_user.id if current_user else (user_id or "anonymous")
+                    
                     # Save metadata to database
-                    image_record = SavedImage(
-                        user_id=user_id or "anonymous",
-                        url=f"/api/generated/{filename}",
-                        prompt=prompt,
-                        metadata=metadata,
-                        created_at=datetime.utcnow()
-                    )
-                    await db.saved_images.insert_one(image_record.dict())
+                    image_record = {
+                        "id": str(uuid.uuid4()),
+                        "user_id": actual_user_id,
+                        "url": f"/api/generated/{filename}",
+                        "prompt": prompt,
+                        "metadata": metadata,
+                        "created_at": datetime.utcnow()
+                    }
+                    await db.saved_images.insert_one(image_record)
             except Exception as e:
                 logger.error(f"Background task error: {e}")
                 
