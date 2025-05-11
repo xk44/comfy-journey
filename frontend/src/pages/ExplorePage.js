@@ -125,10 +125,83 @@ const ExplorePage = () => {
     const apiKey = localStorage.getItem('civitai_api_key');
     if (!apiKey) {
       setError('No Civitai API key found. Please add your API key in Settings.');
-      showToast('Please add your Civitai API key in Settings to view images', 'warning');
-      // Still try to fetch anyway in case the API allows unauthenticated requests for some endpoints
+      showToast('Please add your Civitai API key in Settings to view real Civitai images', 'warning');
+      
+      // Show mock images for demonstration purposes
+      if (activeTab === 'images') {
+        setImages([
+          {
+            id: 'mock1',
+            url: 'https://replicate.delivery/pbxt/4kw2JSufHBnKI1kUQCB7fHEspWh2fvzo3loD9CplCFYz1BiJA/out.png',
+            meta: {
+              prompt: 'A cosmic flower blooming in space, surrounded by nebulae',
+              Model: 'Stable Diffusion XL'
+            },
+            username: 'Demo',
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: 'mock2',
+            url: 'https://replicate.delivery/pbxt/AFcQQmGjG5ubgCIUiLrsmVSLA7cdlqcWKXr5FKnClRgx94QIA/out-0.png',
+            meta: {
+              prompt: 'Cyberpunk city streets at night with neon lights',
+              Model: 'Stable Diffusion 1.5'
+            },
+            username: 'Demo',
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: 'mock3',
+            url: 'https://replicate.delivery/pbxt/VKrhDKbevFnXKkI39U8mTsHdV8awskzFVefGdNKPzgRw7prQA/out-0.png',
+            meta: {
+              prompt: 'Fantasy landscape with floating islands and waterfalls',
+              Model: 'Midjourney Style'
+            },
+            username: 'Demo',
+            createdAt: new Date().toISOString()
+          }
+        ]);
+        setLoading(false);
+        return;
+      } else {
+        setModels([
+          {
+            id: 'mock-model1',
+            name: 'Stable Diffusion XL',
+            type: 'Checkpoint',
+            description: 'A state-of-the-art text-to-image model that generates high-resolution images.',
+            creator: { username: 'StabilityAI' },
+            stats: { downloadCount: 1250000, rating: 4.8 },
+            modelVersions: [
+              {
+                images: [
+                  { url: 'https://replicate.delivery/pbxt/4kw2JSufHBnKI1kUQCB7fHEspWh2fvzo3loD9CplCFYz1BiJA/out.png' }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'mock-model2',
+            name: 'Realistic Vision',
+            type: 'Checkpoint',
+            description: 'A photorealistic model specialized in generating lifelike images from text descriptions.',
+            creator: { username: 'Demo' },
+            stats: { downloadCount: 980000, rating: 4.6 },
+            modelVersions: [
+              {
+                images: [
+                  { url: 'https://replicate.delivery/pbxt/AFcQQmGjG5ubgCIUiLrsmVSLA7cdlqcWKXr5FKnClRgx94QIA/out-0.png' }
+                ]
+              }
+            ]
+          }
+        ]);
+        setLoading(false);
+        return;
+      }
     }
     
+    // If we have an API key, fetch from Civitai
     if (activeTab === 'images') {
       fetchImages(true);
     } else {
