@@ -46,6 +46,9 @@ const HomePage = () => {
   const [parameters, setParameters] = useState("");
   const [customActions, setCustomActions] = useState([]);
   const [workflows, setWorkflows] = useState([]);
+  const [settings, setSettings] = useState({
+    civitaiApiKey: ""
+  });
   const [generating, setGenerating] = useState(false);
   const [images, setImages] = useState([]);
   const [models, setModels] = useState([
