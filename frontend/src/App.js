@@ -1092,7 +1092,7 @@ const SettingsPage = () => {
       <div className="settings-container">
         {!currentUser && (
           <div className="auth-section">
-            <LoginForm onSuccess={() => showToast("Login successful!", "success")} />
+            <LoginForm onSuccess={(message, type) => showToast(message, type)} />
           </div>
         )}
         
