@@ -52,16 +52,22 @@ export const getImages = async ({
   username = '',
   modelId = ''
 }) => {
-  return makeRequest('/images', {
+  const params = {
     limit,
     page,
     nsfw,
     sort,
     period,
-    query,
     username,
     modelId
-  });
+  };
+  
+  // Add search query if provided (as a query parameter)
+  if (query) {
+    params.query = query;
+  }
+  
+  return makeRequest('/images', params);
 };
 
 // Get models
@@ -98,7 +104,7 @@ export const getTags = async () => {
 // Save an image locally (this would use our backend)
 export const saveImage = async (imageUrl, metadata) => {
   try {
-    const response = await fetch(`/api/images/save`, {
+    const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/save-image`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
