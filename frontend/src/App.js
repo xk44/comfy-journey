@@ -1222,11 +1222,7 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/explore" element={<ExplorePage />} />
                 <Route path="/editor" element={<EditorPage />} />
-                <Route path="/gallery" element={
-                  <AuthRoute>
-                    <GalleryPage />
-                  </AuthRoute>
-                } />
+                <Route path="/gallery" element={<GalleryPage />} />
                 <Route path="/workflows" element={<WorkflowsPage />} />
                 <Route path="/parameters" element={<ParametersPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
