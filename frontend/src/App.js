@@ -239,6 +239,56 @@ const HomePage = () => {
     setSearchQuery(e.target.value);
   };
 
+  const executeCustomAction = async (actionId) => {
+    if (!selectedImage) {
+      showToast("Please select an image first", "error");
+      return;
+    }
+
+    const action = customActions.find(a => a.id === actionId);
+    if (!action) {
+      showToast("Action not found", "error");
+      return;
+    }
+
+    const workflow = workflows.find(w => w.id === action.workflow);
+    if (!workflow) {
+      showToast("Workflow not found", "error");
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      console.log(`Executing custom action "${action.name}" with workflow "${workflow.name}"`);
+      
+      // In a real app, this would call the API to execute the workflow
+      // const payload = {
+      //   input_image_url: selectedImage.url,
+      //   workflow_id: action.workflow
+      // };
+      // const response = await axios.post(`${API}/generate`, payload);
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Add new mock processed image
+      const newImage = {
+        id: `img${Date.now()}`,
+        url: "https://replicate.delivery/pbxt/jK6DlTtGaEKVAkrjGqFzLJD8XtnlgC0iJSSJZpMo44dAagsiA/out-0.png",
+        prompt: `${action.name} on "${selectedImage.prompt || 'Image'}"`,
+        workflow_id: action.workflow
+      };
+      
+      setImages([newImage, ...images]);
+      showToast(`${action.name} completed successfully!`, "success");
+    } catch (error) {
+      console.error(`Error executing custom action:`, error);
+      showToast("Failed to execute action. Please try again.", "error");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return (
     <div className="home-page">
       {toast && (
