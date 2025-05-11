@@ -73,6 +73,21 @@ const HomePage = () => {
   }, [location.state]);
 
   useEffect(() => {
+    // Load custom actions if user is logged in
+    if (currentUser) {
+      const loadCustomActions = async () => {
+        try {
+          const actions = await workflowService.getCustomActions();
+          setCustomActions(actions || []);
+        } catch (error) {
+          console.error("Error loading custom actions:", error);
+        }
+      };
+      loadCustomActions();
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
     // Fetch sample images for demonstration
     const fetchImages = async () => {
       try {
