@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import authService from '../services/authService';
 
 const AuthContext = createContext();
 
@@ -7,65 +8,87 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Check for stored user in localStorage
-    const storedUser = localStorage.getItem('comfyui_user');
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    // Check for stored user based on token
+    const initAuth = async () => {
+      try {
+        const storedUser = authService.getCurrentUser();
+        if (storedUser) {
+          setCurrentUser(storedUser);
+          // Validate token by fetching profile
+          try {
+            await authService.getProfile();
+          } catch (error) {
+            console.error('Invalid token, logging out:', error);
+            await logout();
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
   }, []);
 
-  const login = (username, password) => {
-    // For this local auth implementation, we'll just check against some hardcoded values
-    // In a real app, this would validate against a database
-    if (username === 'admin' && password === 'password') {
-      const user = {
-        id: '1',
-        username: 'admin',
-        name: 'Admin User',
-        createdAt: new Date().toISOString()
-      };
-      
-      localStorage.setItem('comfyui_user', JSON.stringify(user));
+  const login = async (username, password) => {
+    try {
+      const user = await authService.login(username, password);
       setCurrentUser(user);
+      setError(null);
       return user;
+    } catch (error) {
+      setError(error.message);
+      throw error;
     }
-    
-    throw new Error('Invalid username or password');
   };
 
-  const register = (username, password, name) => {
-    // For this local auth implementation, we'll just create a new user in localStorage
-    // In a real app, this would create a new user in the database
-    const existingUsers = JSON.parse(localStorage.getItem('comfyui_users') || '[]');
-    
-    // Check if username is already taken
-    if (existingUsers.some(user => user.username === username)) {
-      throw new Error('Username already exists');
+  const register = async (username, password, name) => {
+    try {
+      // First register
+      await authService.register(username, password, name);
+      // Then login with the new credentials
+      const user = await login(username, password);
+      return user;
+    } catch (error) {
+      setError(error.message);
+      throw error;
     }
-    
-    const newUser = {
-      id: Date.now().toString(),
-      username,
-      name,
-      createdAt: new Date().toISOString()
-    };
-    
-    existingUsers.push(newUser);
-    localStorage.setItem('comfyui_users', JSON.stringify(existingUsers));
-    
-    // Auto login after registration
-    localStorage.setItem('comfyui_user', JSON.stringify(newUser));
-    setCurrentUser(newUser);
-    
-    return newUser;
   };
 
-  const logout = () => {
-    localStorage.removeItem('comfyui_user');
-    setCurrentUser(null);
+  const logout = async () => {
+    try {
+      authService.logout();
+      setCurrentUser(null);
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+  };
+
+  const updateUserPreferences = async (preferences) => {
+    try {
+      const result = await authService.updatePreferences(preferences);
+      return result;
+    } catch (error) {
+      console.error('Error updating preferences:', error);
+      setError(error.message);
+      throw error;
+    }
+  };
+
+  const getUserPreferences = async () => {
+    try {
+      const result = await authService.getPreferences();
+      return result.preferences;
+    } catch (error) {
+      console.error('Error getting preferences:', error);
+      return {};
+    }
   };
 
   const value = {
@@ -73,6 +96,9 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    updateUserPreferences,
+    getUserPreferences,
+    error,
     isAuthenticated: !!currentUser
   };
 
