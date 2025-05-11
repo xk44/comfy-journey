@@ -5,6 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import sys
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
@@ -19,11 +20,14 @@ import base64
 from io import BytesIO
 from PIL import Image
 
+# Add the current directory to the path so we can import our modules
+ROOT_DIR = Path(__file__).parent
+sys.path.append(str(ROOT_DIR))
+
 # Import authentication and user routers
 from auth import auth_router, get_current_active_user, UserInDB
 from user_router import user_router
 
-ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
