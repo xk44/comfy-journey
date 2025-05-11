@@ -99,6 +99,12 @@ const HomePage = () => {
         }
       };
       loadWorkflows();
+      
+      // Load settings
+      setSettings(prevSettings => ({
+        ...prevSettings,
+        civitaiApiKey: localStorage.getItem('civitai_api_key') || ""
+      }));
     }
   }, [currentUser]);
 
