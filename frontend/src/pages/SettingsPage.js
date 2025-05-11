@@ -1,72 +1,101 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
-import civitaiService from '../services/civitaiService';
 
 const SettingsPage = () => {
-  const [settings, setSettings] = useState({
-    civitaiApiKey: '',
-    comfyuiUrl: 'http://localhost:8188',
-    theme: 'dark',
-    autoSave: true,
-    notificationsEnabled: true
-  });
+  const { currentUser, updateProfile, logout } = useAuth();
   const [toast, setToast] = useState(null);
-  const { currentUser, logout } = useAuth();
+  
+  const [profile, setProfile] = useState({
+    name: '',
+    username: '',
+    email: '',
+    bio: ''
+  });
+
+  const [preferences, setPreferences] = useState({
+    darkMode: true,
+    autoSave: true,
+    enableNotifications: true,
+    gridSize: 'medium',
+    defaultAspectRatio: '1:1',
+    defaultQuality: 'standard'
+  });
+  
+  const [activeTab, setActiveTab] = useState('profile');
   
   useEffect(() => {
-    // Load settings from localStorage
-    const loadSettings = () => {
-      const civitaiApiKey = localStorage.getItem('civitai_api_key') || '';
-      const comfyuiUrl = localStorage.getItem('comfyuiUrl') || 'http://localhost:8188';
-      const theme = localStorage.getItem('theme') || 'dark';
-      const autoSave = localStorage.getItem('autoSave') !== 'false';
-      const notificationsEnabled = localStorage.getItem('notificationsEnabled') !== 'false';
-      
-      setSettings({
-        civitaiApiKey,
-        comfyuiUrl,
-        theme,
-        autoSave,
-        notificationsEnabled
+    // Load user profile if available
+    if (currentUser) {
+      setProfile({
+        name: currentUser.name || '',
+        username: currentUser.username || '',
+        email: currentUser.email || '',
+        bio: currentUser.bio || ''
       });
-    };
+    }
     
-    loadSettings();
-  }, []);
+    // Load saved preferences from localStorage
+    const savedPreferences = localStorage.getItem('comfyui_preferences');
+    if (savedPreferences) {
+      try {
+        setPreferences(JSON.parse(savedPreferences));
+      } catch (error) {
+        console.error('Error parsing saved preferences:', error);
+      }
+    }
+  }, [currentUser]);
   
-  const handleChange = (e) => {
+  const handleProfileChange = (e) => {
+    const { name, value } = e.target;
+    setProfile({
+      ...profile,
+      [name]: value
+    });
+  };
+  
+  const handlePreferenceChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    setSettings({
-      ...settings,
+    setPreferences({
+      ...preferences,
       [name]: type === 'checkbox' ? checked : value
     });
   };
   
-  const handleSave = async () => {
-    // Save settings to localStorage
-    localStorage.setItem('civitai_api_key', settings.civitaiApiKey);
-    localStorage.setItem('comfyuiUrl', settings.comfyuiUrl);
-    localStorage.setItem('theme', settings.theme);
-    localStorage.setItem('autoSave', settings.autoSave);
-    localStorage.setItem('notificationsEnabled', settings.notificationsEnabled);
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
     
-    // Update the API key in the service
-    if (settings.civitaiApiKey) {
-      civitaiService.setApiKey(settings.civitaiApiKey);
+    try {
+      // In a real implementation, you would call the API
+      // await updateProfile(profile);
+      
+      console.log('Profile updated:', profile);
+      showToast('Profile updated successfully', 'success');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      showToast('Failed to update profile. Please try again.', 'error');
     }
+  };
+  
+  const handleSavePreferences = (e) => {
+    e.preventDefault();
     
-    // Update the theme
-    document.documentElement.setAttribute('data-theme', settings.theme);
-    
-    showToast('Settings saved successfully!', 'success');
+    try {
+      // Save preferences to localStorage
+      localStorage.setItem('comfyui_preferences', JSON.stringify(preferences));
+      
+      console.log('Preferences saved:', preferences);
+      showToast('Preferences saved successfully', 'success');
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      showToast('Failed to save preferences. Please try again.', 'error');
+    }
   };
   
   const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout?')) {
+    if (window.confirm('Are you sure you want to log out?')) {
       logout();
-      showToast('Logged out successfully', 'info');
+      window.location.href = '/';
     }
   };
   
@@ -88,111 +117,249 @@ const SettingsPage = () => {
         />
       )}
       
-      <div className="page-header">
-        <h1>Settings</h1>
-        <p>Configure your application preferences</p>
-      </div>
+      <h1 className="page-title">Settings</h1>
       
       <div className="settings-container">
-        <div className="settings-section">
-          <h2>API Connections</h2>
-          
-          <div className="form-group">
-            <label htmlFor="civitaiApiKey">Civitai API Key:</label>
-            <input
-              type="password"
-              id="civitaiApiKey"
-              name="civitaiApiKey"
-              value={settings.civitaiApiKey}
-              onChange={handleChange}
-              placeholder="Enter your Civitai API key"
-            />
-            <span className="input-help">Required for sharing images to Civitai</span>
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="comfyuiUrl">ComfyUI URL:</label>
-            <input
-              type="text"
-              id="comfyuiUrl"
-              name="comfyuiUrl"
-              value={settings.comfyuiUrl}
-              onChange={handleChange}
-              placeholder="http://localhost:8188"
-            />
-            <span className="input-help">URL to connect to your ComfyUI instance</span>
-          </div>
-        </div>
-        
-        <div className="settings-section">
-          <h2>Appearance</h2>
-          
-          <div className="form-group">
-            <label htmlFor="theme">Theme:</label>
-            <select
-              id="theme"
-              name="theme"
-              value={settings.theme}
-              onChange={handleChange}
-            >
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-              <option value="system">System Default</option>
-            </select>
-          </div>
-        </div>
-        
-        <div className="settings-section">
-          <h2>Preferences</h2>
-          
-          <div className="form-group checkbox">
-            <input
-              type="checkbox"
-              id="autoSave"
-              name="autoSave"
-              checked={settings.autoSave}
-              onChange={handleChange}
-            />
-            <label htmlFor="autoSave">Auto-save generated images</label>
-          </div>
-          
-          <div className="form-group checkbox">
-            <input
-              type="checkbox"
-              id="notificationsEnabled"
-              name="notificationsEnabled"
-              checked={settings.notificationsEnabled}
-              onChange={handleChange}
-            />
-            <label htmlFor="notificationsEnabled">Enable notifications</label>
-          </div>
-        </div>
-        
-        <div className="settings-section">
-          <h2>Account</h2>
-          
-          {currentUser ? (
-            <div className="account-info">
-              <p>Logged in as: <strong>{currentUser.email}</strong></p>
-              <button 
-                className="logout-button"
-                onClick={handleLogout}
-              >
-                Logout
-              </button>
-            </div>
-          ) : (
-            <p>Not logged in</p>
-          )}
-        </div>
-        
-        <div className="settings-actions">
+        <div className="settings-tabs">
           <button 
-            className="save-button"
-            onClick={handleSave}
+            className={`settings-tab ${activeTab === 'profile' ? 'active' : ''}`}
+            onClick={() => setActiveTab('profile')}
           >
-            Save Settings
+            Profile
           </button>
+          <button 
+            className={`settings-tab ${activeTab === 'preferences' ? 'active' : ''}`}
+            onClick={() => setActiveTab('preferences')}
+          >
+            Preferences
+          </button>
+          <button 
+            className={`settings-tab ${activeTab === 'api' ? 'active' : ''}`}
+            onClick={() => setActiveTab('api')}
+          >
+            API Keys
+          </button>
+          <button 
+            className={`settings-tab ${activeTab === 'account' ? 'active' : ''}`}
+            onClick={() => setActiveTab('account')}
+          >
+            Account
+          </button>
+        </div>
+        
+        <div className="settings-content">
+          {activeTab === 'profile' && (
+            <div className="settings-section">
+              <h2>Profile Settings</h2>
+              
+              <form className="settings-form" onSubmit={handleSaveProfile}>
+                <div className="form-group">
+                  <label htmlFor="name">Name</label>
+                  <input 
+                    type="text" 
+                    id="name" 
+                    name="name"
+                    value={profile.name}
+                    onChange={handleProfileChange}
+                    placeholder="Your name" 
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="username">Username</label>
+                  <input 
+                    type="text" 
+                    id="username" 
+                    name="username"
+                    value={profile.username}
+                    onChange={handleProfileChange}
+                    placeholder="Your username" 
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="email">Email</label>
+                  <input 
+                    type="email" 
+                    id="email" 
+                    name="email"
+                    value={profile.email}
+                    onChange={handleProfileChange}
+                    placeholder="Your email" 
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="bio">Bio</label>
+                  <textarea 
+                    id="bio" 
+                    name="bio"
+                    value={profile.bio}
+                    onChange={handleProfileChange}
+                    placeholder="Tell us about yourself" 
+                    rows={4}
+                  />
+                </div>
+                
+                <button type="submit" className="save-button">Save Profile</button>
+              </form>
+            </div>
+          )}
+          
+          {activeTab === 'preferences' && (
+            <div className="settings-section">
+              <h2>Preferences</h2>
+              
+              <form className="settings-form" onSubmit={handleSavePreferences}>
+                <div className="form-group checkbox-group">
+                  <input 
+                    type="checkbox" 
+                    id="darkMode" 
+                    name="darkMode"
+                    checked={preferences.darkMode}
+                    onChange={handlePreferenceChange}
+                  />
+                  <label htmlFor="darkMode">Dark Mode</label>
+                </div>
+                
+                <div className="form-group checkbox-group">
+                  <input 
+                    type="checkbox" 
+                    id="autoSave" 
+                    name="autoSave"
+                    checked={preferences.autoSave}
+                    onChange={handlePreferenceChange}
+                  />
+                  <label htmlFor="autoSave">Auto-save Generated Images</label>
+                </div>
+                
+                <div className="form-group checkbox-group">
+                  <input 
+                    type="checkbox" 
+                    id="enableNotifications" 
+                    name="enableNotifications"
+                    checked={preferences.enableNotifications}
+                    onChange={handlePreferenceChange}
+                  />
+                  <label htmlFor="enableNotifications">Enable Notifications</label>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="gridSize">Grid Size</label>
+                  <select 
+                    id="gridSize" 
+                    name="gridSize"
+                    value={preferences.gridSize}
+                    onChange={handlePreferenceChange}
+                  >
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="defaultAspectRatio">Default Aspect Ratio</label>
+                  <select 
+                    id="defaultAspectRatio" 
+                    name="defaultAspectRatio"
+                    value={preferences.defaultAspectRatio}
+                    onChange={handlePreferenceChange}
+                  >
+                    <option value="1:1">Square (1:1)</option>
+                    <option value="16:9">Landscape (16:9)</option>
+                    <option value="9:16">Portrait (9:16)</option>
+                    <option value="4:3">Standard (4:3)</option>
+                    <option value="3:2">Photo (3:2)</option>
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="defaultQuality">Default Quality</label>
+                  <select 
+                    id="defaultQuality" 
+                    name="defaultQuality"
+                    value={preferences.defaultQuality}
+                    onChange={handlePreferenceChange}
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="standard">Standard</option>
+                    <option value="high">High</option>
+                    <option value="max">Maximum</option>
+                  </select>
+                </div>
+                
+                <button type="submit" className="save-button">Save Preferences</button>
+              </form>
+            </div>
+          )}
+          
+          {activeTab === 'api' && (
+            <div className="settings-section">
+              <h2>API Keys</h2>
+              
+              <div className="api-key-item">
+                <div className="api-key-info">
+                  <h3>ComfyUI API Key</h3>
+                  <p>Used to connect to your ComfyUI instance</p>
+                </div>
+                
+                <div className="api-key-value">
+                  <input 
+                    type="password" 
+                    value="●●●●●●●●●●●●●●●●" 
+                    readOnly 
+                  />
+                  <button className="show-button">Show</button>
+                  <button className="regenerate-button">Regenerate</button>
+                </div>
+              </div>
+              
+              <div className="api-key-item">
+                <div className="api-key-info">
+                  <h3>CivitAI API Key</h3>
+                  <p>Required for CivitAI integration</p>
+                </div>
+                
+                <div className="api-key-value">
+                  <input 
+                    type="text" 
+                    placeholder="Enter your CivitAI API key" 
+                  />
+                  <button className="save-button">Save</button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {activeTab === 'account' && (
+            <div className="settings-section">
+              <h2>Account Settings</h2>
+              
+              <div className="account-info">
+                <div className="info-item">
+                  <span className="info-label">Account Type:</span>
+                  <span className="info-value">Free Plan</span>
+                </div>
+                
+                <div className="info-item">
+                  <span className="info-label">Join Date:</span>
+                  <span className="info-value">May 10, 2023</span>
+                </div>
+                
+                <div className="info-item">
+                  <span className="info-label">Images Generated:</span>
+                  <span className="info-value">127</span>
+                </div>
+              </div>
+              
+              <div className="account-actions">
+                <button className="upgrade-button">Upgrade to Pro</button>
+                <button className="delete-account-button">Delete Account</button>
+                <button className="logout-button" onClick={handleLogout}>Log Out</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
