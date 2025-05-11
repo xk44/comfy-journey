@@ -538,7 +538,10 @@ input:focus, textarea:focus, select:focus {
 }
 
 .clear-button {
-  background-color: transparent;
+  display: flex;
+  align-items: center;
+  gap: var(--mj-spacing-xs);
+  background-color: var(--mj-bg-tertiary);
   color: var(--mj-text-secondary);
   border: 1px solid var(--mj-border-color);
   border-radius: var(--mj-border-radius);
@@ -548,9 +551,15 @@ input:focus, textarea:focus, select:focus {
   transition: all 0.2s ease;
 }
 
+.clear-button svg {
+  width: 14px;
+  height: 14px;
+}
+
 .clear-button:hover {
-  background-color: var(--mj-bg-hover);
-  color: var(--mj-text-primary);
+  background-color: var(--mj-error);
+  color: white;
+  border-color: var(--mj-error);
 }
 
 /* ComfyUI Editor Styles */
