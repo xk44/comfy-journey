@@ -1,59 +1,41 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import "./App.css";
+
+// Components
+import Sidebar from "./components/Sidebar";
+import ErrorBoundary from "./components/ErrorBoundary";
+import LoginForm from "./components/LoginForm";
+import ImageDropZone from "./components/ImageDropZone";
+
+// Pages
+import ExplorePage from "./pages/ExplorePage";
+import GalleryPage from "./pages/GalleryPage";
+
+// Contexts
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 // API Configuration
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-// Components
-const Sidebar = () => {
-  const location = useLocation();
+// Toast notification component
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [onClose]);
   
-  const isActive = (path) => {
-    return location.pathname === path ? "active-nav-item" : "";
-  };
-
   return (
-    <div className="sidebar">
-      <div className="logo">
-        <h1>ComfyUI</h1>
+    <div className={`toast ${type}`}>
+      <div className="toast-content">
+        <p>{message}</p>
       </div>
-      <nav className="sidebar-nav">
-        <Link to="/" className={`nav-item ${isActive('/')}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="icon">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-          </svg>
-          <span>Create</span>
-        </Link>
-        <Link to="/editor" className={`nav-item ${isActive('/editor')}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="icon">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-          </svg>
-          <span>Edit</span>
-        </Link>
-        <Link to="/workflows" className={`nav-item ${isActive('/workflows')}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="icon">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <span>Workflows</span>
-        </Link>
-        <Link to="/parameters" className={`nav-item ${isActive('/parameters')}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="icon">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
-          </svg>
-          <span>Parameters</span>
-        </Link>
-        <Link to="/settings" className={`nav-item ${isActive('/settings')}`}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="icon">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <span>Settings</span>
-        </Link>
-      </nav>
+      <button className="toast-close" onClick={onClose}>×</button>
     </div>
   );
 };
@@ -71,6 +53,23 @@ const HomePage = () => {
   ]);
   const [selectedModel, setSelectedModel] = useState("model1");
   const [showSettings, setShowSettings] = useState(false);
+  const [showDropZone, setShowDropZone] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredImages, setFilteredImages] = useState([]);
+  const { currentUser } = useAuth();
+  const [toast, setToast] = useState(null);
+  const location = useLocation();
+
+  useEffect(() => {
+    // Handle image passed from Explore page
+    if (location.state?.useImage) {
+      setSelectedImage(location.state.useImage);
+      setShowDropZone(true);
+      // Clear location state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     // Fetch sample images for demonstration
@@ -101,19 +100,64 @@ const HomePage = () => {
         ]);
       } catch (error) {
         console.error("Error fetching images:", error);
+        showToast("Failed to load images", "error");
       }
     };
 
     fetchImages();
   }, []);
 
+  // Filter images based on search query
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredImages(images);
+      return;
+    }
+    
+    const filtered = images.filter(image => 
+      image.prompt.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
+    setFilteredImages(filtered);
+  }, [searchQuery, images]);
+
   const generateImage = async () => {
+    if (!prompt) {
+      showToast("Please enter a prompt", "error");
+      return;
+    }
+    
     setGenerating(true);
     try {
+      // Parse parameters
+      const parsedParams = {};
+      if (parameters) {
+        const paramPairs = parameters.match(/--[a-z0-9]+ [^-]*/g);
+        if (paramPairs) {
+          paramPairs.forEach(pair => {
+            const [key, ...valueParts] = pair.trim().split(' ');
+            const value = valueParts.join(' ').trim();
+            parsedParams[key.substring(2)] = value;
+          });
+        }
+      }
+      
+      // Prepare request payload
+      const payload = {
+        prompt,
+        parameters: parsedParams,
+        workflow_id: selectedModel
+      };
+      
+      // Add input image if selected
+      if (selectedImage) {
+        payload.input_image_url = selectedImage.url;
+      }
+      
+      console.log("Generating image with payload:", payload);
+      
       // In a real app, this would call the API to generate images
-      console.log("Generating image with prompt:", prompt);
-      console.log("Parameters:", parameters);
-      console.log("Selected model:", selectedModel);
+      // const response = await axios.post(`${API}/generate`, payload);
       
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -122,12 +166,15 @@ const HomePage = () => {
       const newImage = {
         id: `img${images.length + 1}`,
         url: "https://replicate.delivery/pbxt/5hG0jKlJjVeHkicoSQesVfBLagsY20GmFjOK7Wf6aqIRr8giA/out-0.png",
-        prompt: prompt
+        prompt,
+        parameters: parsedParams
       };
       
       setImages([newImage, ...images]);
+      showToast("Image generated successfully!", "success");
     } catch (error) {
       console.error("Error generating image:", error);
+      showToast("Failed to generate image. Please try again.", "error");
     } finally {
       setGenerating(false);
     }
@@ -147,10 +194,72 @@ const HomePage = () => {
     setShowSettings(!showSettings);
   };
 
+  const toggleDropZone = () => {
+    setShowDropZone(!showDropZone);
+    if (!showDropZone) {
+      setSelectedImage(null); // Reset selected image when opening dropzone
+    }
+  };
+
+  const handleImageSelected = (file, previewUrl) => {
+    setSelectedImage({
+      file,
+      url: previewUrl,
+      isLocal: true
+    });
+    
+    showToast("Image selected for editing", "success");
+  };
+
+  const showToast = (message, type = "info") => {
+    setToast({ message, type });
+  };
+
+  const clearToast = () => {
+    setToast(null);
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
   return (
     <div className="home-page">
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={clearToast} 
+        />
+      )}
+      
+      <div className="top-controls">
+        <div className="search-container">
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Search your images..."
+            value={searchQuery}
+            onChange={handleSearchChange}
+          />
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="search-icon">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+          </svg>
+        </div>
+      </div>
+    
       <div className="prompt-container">
         <div className="prompt-input-container">
+          <button 
+            className="upload-button"
+            onClick={toggleDropZone}
+            title="Upload an image"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+          </button>
+          
           <input
             type="text"
             className="prompt-input"
@@ -159,6 +268,7 @@ const HomePage = () => {
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
           />
+          
           <div className="prompt-buttons">
             <button 
               className="settings-button"
@@ -172,12 +282,29 @@ const HomePage = () => {
             <button 
               className="generate-button"
               onClick={generateImage}
-              disabled={generating || !prompt}
+              disabled={generating || (!prompt && !selectedImage)}
             >
               {generating ? "Generating..." : "Generate"}
             </button>
           </div>
         </div>
+
+        {showDropZone && (
+          <div className="dropzone-container">
+            <ImageDropZone onImageSelected={handleImageSelected} />
+            {selectedImage && (
+              <div className="selected-image-info">
+                <span>Image selected</span>
+                <button 
+                  className="clear-button"
+                  onClick={() => setSelectedImage(null)}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {showSettings && (
           <div className="settings-panel">
@@ -214,26 +341,51 @@ const HomePage = () => {
             <p>Creating your masterpiece...</p>
           </div>
         )}
-        {images.map(image => (
+        {filteredImages.map(image => (
           <div key={image.id} className="image-card">
             <img src={image.url} alt={image.prompt} />
             <div className="image-info">
               <p className="image-prompt">{image.prompt}</p>
               <div className="image-actions">
-                <button className="image-action">
+                <button className="image-action" title="Download">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                   </svg>
                 </button>
-                <button className="image-action">
+                <button className="image-action" title="Edit">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                  </svg>
+                </button>
+                <button 
+                  className="image-action" 
+                  title="Save to Gallery"
+                  onClick={() => {
+                    if (currentUser) {
+                      // In a real app, call API to save
+                      const savedImages = JSON.parse(localStorage.getItem('savedImages') || '[]');
+                      savedImages.push(image);
+                      localStorage.setItem('savedImages', JSON.stringify(savedImages));
+                      showToast("Image saved to gallery", "success");
+                    } else {
+                      showToast("Please log in to save images", "error");
+                    }
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
                   </svg>
                 </button>
               </div>
             </div>
           </div>
         ))}
+        
+        {filteredImages.length === 0 && !generating && (
+          <div className="no-results">
+            <p>No images found matching "{searchQuery}"</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -245,22 +397,47 @@ const EditorPage = () => {
   const [layers, setLayers] = useState([]);
   const [prompt, setPrompt] = useState("");
   const [brushSize, setBrushSize] = useState(20);
+  const [toast, setToast] = useState(null);
+  const location = useLocation();
   
   useEffect(() => {
-    // Mock data for demonstration
-    setCurrentImage({
-      id: "edit1",
-      url: "https://replicate.delivery/pbxt/AFcQQmGjG5ubgCIUiLrsmVSLA7cdlqcWKXr5FKnClRgx94QIA/out-0.png"
-    });
+    // Handle image passed from Gallery page
+    if (location.state?.editImage) {
+      setCurrentImage(location.state.editImage);
+      // Clear location state
+      window.history.replaceState({}, document.title);
+    } else {
+      // Mock data for demonstration
+      setCurrentImage({
+        id: "edit1",
+        url: "https://replicate.delivery/pbxt/AFcQQmGjG5ubgCIUiLrsmVSLA7cdlqcWKXr5FKnClRgx94QIA/out-0.png"
+      });
+    }
     
     setLayers([
       { id: "layer1", name: "Background", visible: true },
       { id: "layer2", name: "Mask", visible: true }
     ]);
-  }, []);
+  }, [location.state]);
+
+  const showToast = (message, type = "info") => {
+    setToast({ message, type });
+  };
+
+  const clearToast = () => {
+    setToast(null);
+  };
 
   return (
     <div className="editor-page">
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={clearToast} 
+        />
+      )}
+      
       <div className="editor-sidebar">
         <div className="editor-section">
           <h3>Layers</h3>
@@ -270,12 +447,29 @@ const EditorPage = () => {
                 <input 
                   type="checkbox" 
                   checked={layer.visible} 
-                  onChange={() => {}} 
+                  onChange={() => {
+                    setLayers(layers.map(l => 
+                      l.id === layer.id ? { ...l, visible: !l.visible } : l
+                    ));
+                  }} 
                 />
                 <span>{layer.name}</span>
               </div>
             ))}
-            <button className="add-layer-button">Add Layer</button>
+            <button 
+              className="add-layer-button"
+              onClick={() => {
+                const newLayer = {
+                  id: `layer${layers.length + 1}`,
+                  name: `Layer ${layers.length + 1}`,
+                  visible: true
+                };
+                setLayers([...layers, newLayer]);
+                showToast("New layer added", "success");
+              }}
+            >
+              Add Layer
+            </button>
           </div>
         </div>
         <div className="editor-section">
@@ -321,7 +515,14 @@ const EditorPage = () => {
         ) : (
           <div className="empty-canvas">
             <p>No image selected for editing</p>
-            <button className="upload-button">Upload an Image</button>
+            <ImageDropZone onImageSelected={(file, previewUrl) => {
+              setCurrentImage({
+                file,
+                url: previewUrl,
+                isLocal: true
+              });
+              showToast("Image loaded for editing", "success");
+            }} />
           </div>
         )}
       </div>
@@ -337,7 +538,10 @@ const EditorPage = () => {
           />
           <button 
             className="generate-button"
-            disabled={!prompt}
+            disabled={!prompt || !currentImage}
+            onClick={() => {
+              showToast("Inpainting request submitted", "success");
+            }}
           >
             Generate
           </button>
@@ -357,6 +561,13 @@ const WorkflowsPage = () => {
     { id: "action4", name: "Outpainting", workflow: null },
     { id: "action5", name: "Upscale", workflow: null }
   ]);
+  const [newWorkflow, setNewWorkflow] = useState({
+    name: "",
+    description: "",
+    file: null
+  });
+  const [editingWorkflow, setEditingWorkflow] = useState(null);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     // Mock data for demonstration
@@ -371,10 +582,83 @@ const WorkflowsPage = () => {
     setActions(actions.map(action => 
       action.id === actionId ? { ...action, workflow: workflowId } : action
     ));
+    showToast("Workflow assigned successfully", "success");
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setNewWorkflow({
+        ...newWorkflow,
+        file
+      });
+    }
+  };
+
+  const handleAddWorkflow = () => {
+    if (!newWorkflow.name || !newWorkflow.description) {
+      showToast("Please fill in all fields", "error");
+      return;
+    }
+    
+    const workflow = {
+      id: `workflow${workflows.length + 1}`,
+      name: newWorkflow.name,
+      description: newWorkflow.description
+    };
+    
+    setWorkflows([...workflows, workflow]);
+    setNewWorkflow({
+      name: "",
+      description: "",
+      file: null
+    });
+    
+    showToast("Workflow added successfully", "success");
+  };
+
+  const handleUpdateWorkflow = () => {
+    if (!editingWorkflow) return;
+    
+    setWorkflows(workflows.map(workflow => 
+      workflow.id === editingWorkflow.id ? editingWorkflow : workflow
+    ));
+    
+    setEditingWorkflow(null);
+    showToast("Workflow updated successfully", "success");
+  };
+
+  const handleDeleteWorkflow = (id) => {
+    if (window.confirm("Are you sure you want to delete this workflow?")) {
+      setWorkflows(workflows.filter(workflow => workflow.id !== id));
+      
+      // Remove workflow from actions
+      setActions(actions.map(action => 
+        action.workflow === id ? { ...action, workflow: null } : action
+      ));
+      
+      showToast("Workflow deleted successfully", "success");
+    }
+  };
+
+  const showToast = (message, type = "info") => {
+    setToast({ message, type });
+  };
+
+  const clearToast = () => {
+    setToast(null);
   };
 
   return (
     <div className="workflows-page">
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={clearToast} 
+        />
+      )}
+      
       <div className="page-header">
         <h1>Workflow Manager</h1>
         <p>Map ComfyUI workflows to frontend actions</p>
@@ -383,13 +667,90 @@ const WorkflowsPage = () => {
       <div className="workflows-container">
         <div className="available-workflows">
           <h2>Available Workflows</h2>
+          
+          <div className="add-workflow-form">
+            <h3>{editingWorkflow ? "Edit Workflow" : "Add New Workflow"}</h3>
+            <div className="form-group">
+              <label>Name:</label>
+              <input 
+                type="text" 
+                value={editingWorkflow ? editingWorkflow.name : newWorkflow.name}
+                onChange={(e) => 
+                  editingWorkflow 
+                    ? setEditingWorkflow({...editingWorkflow, name: e.target.value})
+                    : setNewWorkflow({...newWorkflow, name: e.target.value})
+                }
+                placeholder="Workflow name"
+              />
+            </div>
+            <div className="form-group">
+              <label>Description:</label>
+              <input 
+                type="text" 
+                value={editingWorkflow ? editingWorkflow.description : newWorkflow.description}
+                onChange={(e) => 
+                  editingWorkflow 
+                    ? setEditingWorkflow({...editingWorkflow, description: e.target.value})
+                    : setNewWorkflow({...newWorkflow, description: e.target.value})
+                }
+                placeholder="Workflow description"
+              />
+            </div>
+            {!editingWorkflow && (
+              <div className="form-group">
+                <label>Workflow File:</label>
+                <input 
+                  type="file" 
+                  onChange={handleFileChange}
+                  accept=".json"
+                />
+              </div>
+            )}
+            <div className="form-actions">
+              {editingWorkflow ? (
+                <>
+                  <button 
+                    className="save-button"
+                    onClick={handleUpdateWorkflow}
+                  >
+                    Update Workflow
+                  </button>
+                  <button 
+                    className="cancel-button"
+                    onClick={() => setEditingWorkflow(null)}
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button 
+                  className="add-button"
+                  onClick={handleAddWorkflow}
+                >
+                  Add Workflow
+                </button>
+              )}
+            </div>
+          </div>
+          
           <div className="workflows-list">
             {workflows.map(workflow => (
               <div key={workflow.id} className="workflow-card">
                 <h3>{workflow.name}</h3>
                 <p>{workflow.description}</p>
                 <div className="workflow-actions">
-                  <button className="view-button">View Details</button>
+                  <button 
+                    className="edit-button" 
+                    onClick={() => setEditingWorkflow(workflow)}
+                  >
+                    Edit
+                  </button>
+                  <button 
+                    className="delete-button"
+                    onClick={() => handleDeleteWorkflow(workflow.id)}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}
@@ -440,6 +801,8 @@ const ParametersPage = () => {
     value_template: "",
     description: ""
   });
+  const [editingParameter, setEditingParameter] = useState(null);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     // Mock data for demonstration
@@ -465,14 +828,24 @@ const ParametersPage = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setNewParameter({ ...newParameter, [name]: value });
+    if (editingParameter) {
+      setEditingParameter({ ...editingParameter, [name]: value });
+    } else {
+      setNewParameter({ ...newParameter, [name]: value });
+    }
   };
 
   const addParameter = () => {
+    if (!newParameter.code || !newParameter.node_id || !newParameter.param_name) {
+      showToast("Please fill in all required fields", "error");
+      return;
+    }
+    
     const param = {
       id: `param${parameters.length + 1}`,
       ...newParameter
     };
+    
     setParameters([...parameters, param]);
     setNewParameter({
       code: "",
@@ -481,14 +854,46 @@ const ParametersPage = () => {
       value_template: "",
       description: ""
     });
+    
+    showToast("Parameter added successfully", "success");
+  };
+
+  const updateParameter = () => {
+    if (!editingParameter) return;
+    
+    setParameters(parameters.map(param => 
+      param.id === editingParameter.id ? editingParameter : param
+    ));
+    
+    setEditingParameter(null);
+    showToast("Parameter updated successfully", "success");
   };
 
   const deleteParameter = (id) => {
-    setParameters(parameters.filter(param => param.id !== id));
+    if (window.confirm("Are you sure you want to delete this parameter?")) {
+      setParameters(parameters.filter(param => param.id !== id));
+      showToast("Parameter deleted successfully", "success");
+    }
+  };
+
+  const showToast = (message, type = "info") => {
+    setToast({ message, type });
+  };
+
+  const clearToast = () => {
+    setToast(null);
   };
 
   return (
     <div className="parameters-page">
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={clearToast} 
+        />
+      )}
+      
       <div className="page-header">
         <h1>Parameter Manager</h1>
         <p>Create and manage parameter mappings for ComfyUI nodes</p>
@@ -496,7 +901,7 @@ const ParametersPage = () => {
 
       <div className="parameters-container">
         <div className="add-parameter-form">
-          <h2>Add New Parameter</h2>
+          <h2>{editingParameter ? "Edit Parameter" : "Add New Parameter"}</h2>
           <div className="form-grid">
             <div className="form-group">
               <label htmlFor="code">Parameter Code</label>
@@ -505,7 +910,7 @@ const ParametersPage = () => {
                 id="code" 
                 name="code" 
                 placeholder="e.g., --ar" 
-                value={newParameter.code}
+                value={editingParameter ? editingParameter.code : newParameter.code}
                 onChange={handleInputChange}
               />
             </div>
@@ -516,7 +921,7 @@ const ParametersPage = () => {
                 id="node_id" 
                 name="node_id" 
                 placeholder="ComfyUI node ID" 
-                value={newParameter.node_id}
+                value={editingParameter ? editingParameter.node_id : newParameter.node_id}
                 onChange={handleInputChange}
               />
             </div>
@@ -527,7 +932,7 @@ const ParametersPage = () => {
                 id="param_name" 
                 name="param_name" 
                 placeholder="Node parameter name" 
-                value={newParameter.param_name}
+                value={editingParameter ? editingParameter.param_name : newParameter.param_name}
                 onChange={handleInputChange}
               />
             </div>
@@ -538,7 +943,7 @@ const ParametersPage = () => {
                 id="value_template" 
                 name="value_template" 
                 placeholder="e.g., width:height" 
-                value={newParameter.value_template}
+                value={editingParameter ? editingParameter.value_template : newParameter.value_template}
                 onChange={handleInputChange}
               />
             </div>
@@ -549,18 +954,35 @@ const ParametersPage = () => {
                 id="description" 
                 name="description" 
                 placeholder="Parameter description" 
-                value={newParameter.description}
+                value={editingParameter ? editingParameter.description : newParameter.description}
                 onChange={handleInputChange}
               />
             </div>
           </div>
-          <button 
-            className="add-button"
-            onClick={addParameter}
-            disabled={!newParameter.code || !newParameter.node_id || !newParameter.param_name}
-          >
-            Add Parameter
-          </button>
+          {editingParameter ? (
+            <div className="form-actions">
+              <button 
+                className="save-button"
+                onClick={updateParameter}
+              >
+                Update Parameter
+              </button>
+              <button 
+                className="cancel-button"
+                onClick={() => setEditingParameter(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button 
+              className="add-button"
+              onClick={addParameter}
+              disabled={!newParameter.code || !newParameter.node_id || !newParameter.param_name}
+            >
+              Add Parameter
+            </button>
+          )}
         </div>
 
         <div className="parameters-list">
@@ -586,12 +1008,20 @@ const ParametersPage = () => {
                     <td><code>{param.value_template}</code></td>
                     <td>{param.description}</td>
                     <td>
-                      <button 
-                        className="delete-button"
-                        onClick={() => deleteParameter(param.id)}
-                      >
-                        Delete
-                      </button>
+                      <div className="table-actions">
+                        <button 
+                          className="edit-button"
+                          onClick={() => setEditingParameter(param)}
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          className="delete-button"
+                          onClick={() => deleteParameter(param.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -610,8 +1040,11 @@ const SettingsPage = () => {
     comfyuiUrl: "http://localhost:8188",
     autoRefresh: true,
     defaultModel: "model1",
-    theme: "dark"
+    theme: "dark",
+    civitaiApiKey: localStorage.getItem('civitai_api_key') || ""
   });
+  const [toast, setToast] = useState(null);
+  const { currentUser } = useAuth();
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -622,19 +1055,47 @@ const SettingsPage = () => {
   };
 
   const saveSettings = () => {
-    console.log("Saving settings:", settings);
-    // In a real app, save to API/localStorage
-    alert("Settings saved!");
+    // Save to localStorage
+    Object.entries(settings).forEach(([key, value]) => {
+      localStorage.setItem(key, typeof value === 'boolean' ? value.toString() : value);
+    });
+    
+    // Special handling for Civitai API key
+    localStorage.setItem('civitai_api_key', settings.civitaiApiKey);
+    
+    showToast("Settings saved successfully!", "success");
+  };
+
+  const showToast = (message, type = "info") => {
+    setToast({ message, type });
+  };
+
+  const clearToast = () => {
+    setToast(null);
   };
 
   return (
     <div className="settings-page">
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={clearToast} 
+        />
+      )}
+      
       <div className="page-header">
         <h1>Settings</h1>
         <p>Configure application preferences</p>
       </div>
 
       <div className="settings-container">
+        {!currentUser && (
+          <div className="auth-section">
+            <LoginForm onSuccess={() => showToast("Login successful!", "success")} />
+          </div>
+        )}
+        
         <div className="settings-form">
           <div className="settings-group">
             <h2>ComfyUI Connection</h2>
@@ -693,6 +1154,24 @@ const SettingsPage = () => {
             </div>
           </div>
 
+          <div className="settings-group">
+            <h2>Civitai API</h2>
+            <div className="form-group">
+              <label htmlFor="civitaiApiKey">API Key (Optional)</label>
+              <input 
+                type="password" 
+                id="civitaiApiKey" 
+                name="civitaiApiKey" 
+                value={settings.civitaiApiKey}
+                onChange={handleInputChange}
+                placeholder="Enter your Civitai API key"
+              />
+              <p className="help-text">
+                Get your API key from: <a href="https://civitai.com/user/account" target="_blank" rel="noopener noreferrer">Civitai Account Settings</a>
+              </p>
+            </div>
+          </div>
+
           <button 
             className="save-button"
             onClick={saveSettings}
@@ -703,6 +1182,18 @@ const SettingsPage = () => {
       </div>
     </div>
   );
+};
+
+// AuthRoute - Redirect to settings/login if not authenticated
+const AuthRoute = ({ children }) => {
+  const { currentUser } = useAuth();
+  const location = useLocation();
+  
+  if (!currentUser) {
+    return <Navigate to="/settings" state={{ from: location }} replace />;
+  }
+  
+  return children;
 };
 
 // Main App component
@@ -721,20 +1212,30 @@ function App() {
   }, []);
 
   return (
-    <div className="app">
-      <Router>
-        <Sidebar />
-        <div className="main-content">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/editor" element={<EditorPage />} />
-            <Route path="/workflows" element={<WorkflowsPage />} />
-            <Route path="/parameters" element={<ParametersPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Routes>
+    <ErrorBoundary>
+      <AuthProvider>
+        <div className="app">
+          <Router>
+            <Sidebar />
+            <div className="main-content">
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/explore" element={<ExplorePage />} />
+                <Route path="/editor" element={<EditorPage />} />
+                <Route path="/gallery" element={
+                  <AuthRoute>
+                    <GalleryPage />
+                  </AuthRoute>
+                } />
+                <Route path="/workflows" element={<WorkflowsPage />} />
+                <Route path="/parameters" element={<ParametersPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Routes>
+            </div>
+          </Router>
         </div>
-      </Router>
-    </div>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
