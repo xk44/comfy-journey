@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Body, UploadFile, File, Form, BackgroundTasks
+from fastapi import FastAPI, APIRouter, HTTPException, Body, UploadFile, File, Form, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse, FileResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -18,6 +18,10 @@ import shutil
 import base64
 from io import BytesIO
 from PIL import Image
+
+# Import authentication and user routers
+from auth import auth_router, get_current_active_user, UserInDB
+from user_router import user_router
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
