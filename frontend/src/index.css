@@ -1,52 +1,39 @@
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
 :root {
-  /* Default CSS Variables - Will be overridden by midjourney-theme.css */
-  --color-bg-primary: #0e0e0f;
-  --color-bg-secondary: #18191c;
-  --color-bg-tertiary: #1f2023;
-  --color-bg-hover: #2a2c31;
-  --color-accent: #5865f2;
-  --color-accent-hover: #4752c4;
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #a6a7ab;
-  --color-text-disabled: #666666;
-  --color-border: #2a2c31;
-  
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  
-  --border-radius: 4px;
+  --mj-bg-primary: #0d0d0d;
+  --mj-bg-secondary: #1a1a1a;
+  --mj-bg-tertiary: #252525;
+  --mj-bg-hover: #333;
+  --mj-text-primary: #e0e0e0;
+  --mj-text-secondary: #a0a0a0;
+  --mj-accent: #1a9fff;
+  --mj-accent-hover: #0d8de8;
+  --mj-error: #f44336;
+  --mj-success: #00c853;
+  --mj-warning: #ff9800;
+  --mj-border-color: #333;
+  --mj-border-radius: 6px;
+  --mj-spacing-xs: 4px;
+  --mj-spacing-sm: 8px;
+  --mj-spacing-md: 16px;
+  --mj-spacing-lg: 24px;
+  --mj-spacing-xl: 32px;
 }
 
-html,
 body {
-  height: 100%;
-  width: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-primary);
+  background-color: var(--mj-bg-primary);
+  color: var(--mj-text-primary);
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
 }
 
-#root {
-  height: 100%;
-}
-
-/* Control SVG Icon sizes here */
-svg {
-  width: 18px;
-  height: 18px;
+* {
+  box-sizing: border-box;
 }
