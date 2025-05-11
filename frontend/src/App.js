@@ -1,4 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import HomePage from './pages/HomePage';
+import ExplorePage from './pages/ExplorePage';
+import EditorPage from './pages/EditorPage';
+import AdvancedEditorPage from './pages/AdvancedEditorPage';
+import GalleryPage from './pages/GalleryPage';
+import WorkflowsPage from './pages/WorkflowsPage';
+import ParametersPage from './pages/ParametersPage';
+import SettingsPage from './pages/SettingsPage';
+import Sidebar from './components/Sidebar';
+import { AuthProvider } from './contexts/AuthContext';
 
 const ComfyUIEditor = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
