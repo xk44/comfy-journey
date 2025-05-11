@@ -1,29 +1,33 @@
-.workflows-page .section-header {
+.selected-image-info {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-md);
-  flex-wrap: wrap;
-}
-
-.workflows-page .section-header h3 {
-  margin: 0;
-  font-size: 1.2rem;
-  color: var(--color-text-primary);
-}
-
-.workflows-page .section-header p {
-  margin: 0;
-  font-size: 0.9rem;
+  flex-direction: column;
+  background-color: var(--color-bg-secondary);
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius);
+  margin-top: var(--spacing-sm);
   color: var(--color-text-secondary);
-  flex: 1;
-  margin-left: var(--spacing-md);
 }
 
-.add-action-button {
+.selected-image-actions {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.custom-actions {
+  display: flex;
+  flex-direction: column;
   gap: var(--spacing-xs);
+}
+
+.custom-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.custom-action-button {
   background-color: var(--color-accent);
   color: white;
   border: none;
@@ -34,81 +38,46 @@
   transition: all 0.2s ease;
 }
 
-.add-action-button:hover {
+.custom-action-button:hover {
   background-color: var(--color-accent-hover);
 }
 
-.add-action-form {
-  background-color: var(--color-bg-secondary);
-  border-radius: var(--border-radius);
-  padding: var(--spacing-md);
-  margin-bottom: var(--spacing-md);
+.custom-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-.custom-actions-section {
-  margin-top: var(--spacing-xl);
+.image-sharing-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
 }
 
-.custom-action-item {
+.sharing-button {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  background-color: var(--color-bg-secondary);
-  padding: var(--spacing-md);
+  gap: var(--spacing-xs);
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border: none;
+  padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--border-radius);
-  margin-bottom: var(--spacing-sm);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
 }
 
-.custom-action-item .action-info h4 {
-  margin: 0;
-  font-size: 1rem;
+.sharing-button:hover {
+  background-color: var(--color-bg-hover);
   color: var(--color-text-primary);
 }
 
-.custom-action-item .action-info p {
-  margin: var(--spacing-xs) 0 0;
-  font-size: 0.9rem;
-  color: var(--color-text-secondary);
+.sharing-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-.custom-action-item .action-controls {
-  display: flex;
-  gap: var(--spacing-sm);
-}
-
-.custom-actions-list .empty-state {
-  text-align: center;
-  padding: var(--spacing-xl) 0;
-  color: var(--color-text-secondary);
-}
-
-.comfyui-integration-section {
-  background-color: var(--color-bg-secondary);
-  border-radius: var(--border-radius);
-  padding: var(--spacing-lg);
-  margin-top: var(--spacing-xl);
-  text-align: center;
-}
-
-.comfyui-integration-section h2 {
-  margin-top: 0;
-}
-
-.open-comfyui-button {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  background-color: var(--color-accent);
-  color: white;
-  border: none;
-  padding: var(--spacing-sm) var(--spacing-lg);
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  margin-top: var(--spacing-md);
-}
-
-.open-comfyui-button:hover {
-  background-color: var(--color-accent-hover);
+.sharing-button svg {
+  width: 16px;
+  height: 16px;
 }
