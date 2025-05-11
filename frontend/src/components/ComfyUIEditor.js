@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 const ComfyUIEditor = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [comfyuiUrl, setComfyuiUrl] = useState("http://localhost:8188");
+  const [status, setStatus] = useState("disconnected"); // "connected", "disconnected", "loading"
   const iframeRef = useRef(null);
   
   useEffect(() => {
@@ -12,6 +13,39 @@ const ComfyUIEditor = () => {
       setComfyuiUrl(savedUrl);
     }
   }, []);
+
+  const checkConnection = async () => {
+    setStatus("loading");
+    try {
+      // Try to fetch the status endpoint
+      const response = await fetch(`${comfyuiUrl}/system_stats`);
+      if (response.ok) {
+        setStatus("connected");
+        return true;
+      } else {
+        setStatus("disconnected");
+        return false;
+      }
+    } catch (error) {
+      console.error("Error checking ComfyUI connection:", error);
+      setStatus("disconnected");
+      return false;
+    }
+  };
+  
+  const handleConnect = async () => {
+    localStorage.setItem('comfyuiUrl', comfyuiUrl);
+    const connected = await checkConnection();
+    
+    if (connected) {
+      if (iframeRef.current) {
+        iframeRef.current.src = comfyuiUrl;
+      }
+    } else {
+      // Show a message if the connection fails
+      alert(`Could not connect to ComfyUI at ${comfyuiUrl}. Please make sure ComfyUI is running and accessible.`);
+    }
+  };
   
   return (
     <div className={`comfyui-editor-container ${isFullscreen ? 'fullscreen' : ''}`}>
@@ -26,14 +60,11 @@ const ComfyUIEditor = () => {
               placeholder="ComfyUI URL"
             />
             <button 
-              onClick={() => {
-                localStorage.setItem('comfyuiUrl', comfyuiUrl);
-                if (iframeRef.current) {
-                  iframeRef.current.src = comfyuiUrl;
-                }
-              }}
+              onClick={handleConnect}
+              className={status === "loading" ? "loading" : ""}
+              disabled={status === "loading"}
             >
-              Connect
+              {status === "loading" ? "Connecting..." : "Connect"}
             </button>
           </div>
           <button 
@@ -65,12 +96,26 @@ const ComfyUIEditor = () => {
         </div>
       </div>
       <div className="comfyui-editor-frame">
-        <iframe
-          ref={iframeRef}
-          src={comfyuiUrl}
-          title="ComfyUI Editor"
-          className="comfyui-iframe"
-        ></iframe>
+        {status === "connected" ? (
+          <iframe
+            ref={iframeRef}
+            src={comfyuiUrl}
+            title="ComfyUI Editor"
+            className="comfyui-iframe"
+          ></iframe>
+        ) : (
+          <div className="comfyui-placeholder">
+            <h3>ComfyUI Connection</h3>
+            <p>
+              {status === "loading" 
+                ? "Connecting to ComfyUI..." 
+                : "Connect to your ComfyUI instance to edit workflows."}
+            </p>
+            <p className="comfyui-help">
+              Make sure ComfyUI is running and accessible at the URL above.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
