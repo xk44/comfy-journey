@@ -28,6 +28,7 @@ const LoginForm = ({ onSuccess }) => {
         if (onSuccess) onSuccess('Registration successful!', 'success');
       }
     } catch (error) {
+      console.error('Auth error:', error);
       setError(error.message);
       if (onSuccess) onSuccess(error.message, 'error');
     } finally {
@@ -102,5 +103,7 @@ const LoginForm = ({ onSuccess }) => {
     </div>
   );
 };
+
+export default LoginForm;
 
 export default LoginForm;
