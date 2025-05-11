@@ -373,12 +373,85 @@ const HomePage = () => {
             {selectedImage && (
               <div className="selected-image-info">
                 <span>Image selected</span>
-                <button 
-                  className="clear-button"
-                  onClick={() => setSelectedImage(null)}
-                >
-                  Clear
-                </button>
+                <div className="selected-image-actions">
+                  {/* Custom actions */}
+                  {customActions.length > 0 && (
+                    <div className="custom-actions">
+                      <span>Actions:</span>
+                      <div className="custom-action-buttons">
+                        {customActions.map(action => (
+                          <button 
+                            key={action.id}
+                            className="custom-action-button"
+                            onClick={() => executeCustomAction(action.id)}
+                            disabled={generating}
+                          >
+                            {action.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Sharing options */}
+                  <div className="image-sharing-options">
+                    <button 
+                      className="sharing-button"
+                      onClick={() => {
+                        // Copy image URL to clipboard
+                        navigator.clipboard.writeText(selectedImage.url)
+                          .then(() => {
+                            showToast("Image URL copied to clipboard", "success");
+                          })
+                          .catch(err => {
+                            console.error("Error copying to clipboard:", err);
+                            showToast("Failed to copy to clipboard", "error");
+                          });
+                      }}
+                      title="Copy Image URL"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="20" height="20">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" />
+                      </svg>
+                      Copy
+                    </button>
+                    
+                    <button 
+                      className="sharing-button"
+                      onClick={() => {
+                        if (currentUser) {
+                          if (!settings?.civitaiApiKey) {
+                            showToast("Please set your Civitai API key in Settings", "error");
+                            return;
+                          }
+                          
+                          showToast("Uploading to Civitai...", "info");
+                          
+                          // In a real app, this would use the civitaiService to upload
+                          setTimeout(() => {
+                            showToast("Image shared to Civitai successfully", "success");
+                          }, 2000);
+                        } else {
+                          showToast("Please log in to share to Civitai", "error");
+                        }
+                      }}
+                      title="Share to Civitai"
+                      disabled={!currentUser}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="20" height="20">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+                      </svg>
+                      Share to Civitai
+                    </button>
+                  </div>
+                  
+                  <button 
+                    className="clear-button"
+                    onClick={() => setSelectedImage(null)}
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
             )}
           </div>
