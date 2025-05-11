@@ -9,6 +9,8 @@ let CIVITAI_API_KEY = localStorage.getItem('civitai_api_key') || '';
 export const setApiKey = (apiKey) => {
   CIVITAI_API_KEY = apiKey;
   localStorage.setItem('civitai_api_key', apiKey);
+  console.log('CivitAI API key has been set');
+  return CIVITAI_API_KEY;
 };
 
 // Helper for making API requests
@@ -23,12 +25,16 @@ const makeRequest = async (endpoint, params = {}) => {
   });
   
   // Add API key if available
+  const options = {
+    headers: {}
+  };
+  
   if (CIVITAI_API_KEY) {
-    url.searchParams.append('token', CIVITAI_API_KEY);
+    options.headers['Authorization'] = `Bearer ${CIVITAI_API_KEY}`;
   }
   
   try {
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), options);
     
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
@@ -70,6 +76,15 @@ export const getImages = async ({
   return makeRequest('/images', params);
 };
 
+// Get trending images
+export const getTrendingImages = async (limit = 20) => {
+  return makeRequest('/images', {
+    limit,
+    sort: 'Most Reactions',
+    period: 'Day',
+  });
+};
+
 // Get models
 export const getModels = async ({
   limit = 20,
@@ -101,29 +116,61 @@ export const getTags = async () => {
   return makeRequest('/tags');
 };
 
-// Save an image locally (this would use our backend)
-export const saveImage = async (imageUrl, metadata) => {
+// Upload an image to CivitAI
+export const uploadImage = async (imageUrl, promptText, workflowId) => {
+  if (!CIVITAI_API_KEY) {
+    throw new Error('CivitAI API key not set');
+  }
+  
   try {
-    const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/save-image`, {
-      method: 'POST',
+    // In a full implementation, you would need to:
+    // 1. Download the image if it's a URL
+    // 2. Convert to a File/Blob
+    // 3. Use FormData to upload
+    console.log(`Would upload image: ${imageUrl} with prompt: ${promptText} from workflow: ${workflowId}`);
+    
+    // This is a mock implementation
+    const mockResponse = {
+      success: true,
+      imageId: `civitai-${Date.now()}`,
+      url: 'https://civitai.com/images/placeholder'
+    };
+    
+    return mockResponse;
+  } catch (error) {
+    console.error('Error uploading to CivitAI:', error);
+    throw error;
+  }
+};
+
+// Check if API key is valid
+export const checkApiKey = async () => {
+  if (!CIVITAI_API_KEY) {
+    return false;
+  }
+  
+  try {
+    // Try to get user info or another restricted endpoint
+    const response = await fetch(`${CIVITAI_API_URL}/user/me`, {
       headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ url: imageUrl, metadata })
+        'Authorization': `Bearer ${CIVITAI_API_KEY}`
+      }
     });
     
-    return await response.json();
+    return response.ok;
   } catch (error) {
-    console.error('Error saving image:', error);
-    throw error;
+    console.error('Error checking API key:', error);
+    return false;
   }
 };
 
 export default {
   getImages,
+  getTrendingImages,
   getModels,
   getModel,
   getTags,
-  saveImage,
-  setApiKey
+  uploadImage,
+  setApiKey,
+  checkApiKey
 };
