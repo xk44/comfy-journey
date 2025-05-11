@@ -290,6 +290,159 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# New image-related routes
+@api_router.post("/upload-image")
+async def upload_image(file: UploadFile = File(...)):
+    """Upload an image for processing."""
+    try:
+        # Generate a unique filename
+        ext = file.filename.split('.')[-1]
+        filename = f"{uuid.uuid4()}.{ext}"
+        file_path = UPLOADS_DIR / filename
+        
+        # Save the uploaded file
+        async with aiofiles.open(file_path, 'wb') as out_file:
+            content = await file.read()
+            await out_file.write(content)
+        
+        # Return the URL to the uploaded file
+        return {
+            "filename": filename,
+            "url": f"/api/uploads/{filename}",
+            "size": os.path.getsize(file_path)
+        }
+    except Exception as e:
+        logger.error(f"Error uploading image: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail={"message": "Failed to upload image", "error": str(e)}
+        )
+
+@api_router.post("/save-image")
+async def save_external_image(
+    background_tasks: BackgroundTasks,
+    url: str = Body(...),
+    user_id: Optional[str] = Body(None),
+    prompt: Optional[str] = Body(None),
+    metadata: Optional[Dict[str, Any]] = Body(None)
+):
+    """Save an image from an external URL to the local gallery."""
+    try:
+        # Generate a unique filename
+        ext = url.split('.')[-1].split('?')[0]
+        if ext not in ['jpg', 'jpeg', 'png', 'gif']:
+            ext = 'jpg'  # Default extension if not recognized
+        
+        filename = f"{uuid.uuid4()}.{ext}"
+        file_path = GENERATED_DIR / filename
+        
+        # Download and save the image in the background
+        async def download_image():
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(url)
+                    response.raise_for_status()
+                    
+                    # Save the image
+                    async with aiofiles.open(file_path, 'wb') as out_file:
+                        await out_file.write(response.content)
+                    
+                    # Save metadata to database
+                    image_record = SavedImage(
+                        user_id=user_id or "anonymous",
+                        url=f"/api/generated/{filename}",
+                        prompt=prompt,
+                        metadata=metadata,
+                        created_at=datetime.utcnow()
+                    )
+                    await db.saved_images.insert_one(image_record.dict())
+            except Exception as e:
+                logger.error(f"Background task error: {e}")
+                
+        background_tasks.add_task(download_image)
+        
+        return {
+            "message": "Image download started",
+            "filename": filename,
+            "url": f"/api/generated/{filename}"
+        }
+    except Exception as e:
+        logger.error(f"Error saving external image: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail={"message": "Failed to save image", "error": str(e)}
+        )
+
+@api_router.get("/uploads/{filename}")
+async def get_uploaded_image(filename: str):
+    """Retrieve an uploaded image."""
+    file_path = UPLOADS_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(file_path)
+
+@api_router.get("/generated/{filename}")
+async def get_generated_image(filename: str):
+    """Retrieve a generated image."""
+    file_path = GENERATED_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(file_path)
+
+@api_router.get("/user-images/{user_id}")
+async def get_user_images(user_id: str):
+    """Get all images for a specific user."""
+    try:
+        images = await db.saved_images.find({"user_id": user_id}).sort("created_at", -1).to_list(1000)
+        return images
+    except Exception as e:
+        logger.error(f"Error getting user images: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.delete("/images/{image_id}")
+async def delete_image(image_id: str):
+    """Delete an image from the user's gallery."""
+    try:
+        # Find the image record
+        image = await db.saved_images.find_one({"id": image_id})
+        if not image:
+            raise HTTPException(status_code=404, detail="Image not found")
+        
+        # Delete the file if it exists
+        url = image.get("url", "")
+        if url.startswith("/api/generated/"):
+            filename = url.split("/")[-1]
+            file_path = GENERATED_DIR / filename
+            if file_path.exists():
+                file_path.unlink()
+        
+        # Delete the database record
+        await db.saved_images.delete_one({"id": image_id})
+        
+        return {"message": "Image deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting image: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request, exc):
+    """Global exception handler for better error reporting."""
+    error_id = str(uuid.uuid4())
+    error_type = type(exc).__name__
+    
+    logger.error(f"Unhandled exception {error_id}: {exc}", exc_info=True)
+    
+    return JSONResponse(
+        status_code=500,
+        content=ErrorResponse(
+            detail=f"An unexpected error occurred: {str(exc)}",
+            error_code=error_id,
+            error_type=error_type
+        ).dict()
+    )
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
