@@ -70,6 +70,30 @@ class GenerateImageRequest(BaseModel):
     prompt: str
     parameters: Optional[Dict[str, Any]] = None
     workflow_id: Optional[str] = None
+    input_image_url: Optional[str] = None
+    mask_image_url: Optional[str] = None
+
+class User(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    username: str
+    name: str
+    password_hash: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class SavedImage(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4())) 
+    user_id: str
+    url: str
+    prompt: Optional[str] = None
+    parameters: Optional[Dict[str, Any]] = None
+    workflow_id: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ErrorResponse(BaseModel):
+    detail: str
+    error_code: Optional[str] = None
+    error_type: Optional[str] = None
 
 # ComfyUI API client
 class ComfyUIClient:
