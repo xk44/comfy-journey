@@ -73,6 +73,15 @@ const Sidebar = () => {
               Parameters
             </NavLink>
           </li>
+
+          <li className="nav-item">
+            <NavLink to="/backend" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.5h16.5M3.75 9h16.5m-16.5 4.5h16.5M3.75 18h16.5" />
+              </svg>
+              Backend
+            </NavLink>
+          </li>
           
           <li className="nav-item">
             <NavLink to="/settings" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>

@@ -13,6 +13,7 @@ import EditorPage from './pages/EditorPage';
 import AdvancedEditorPage from './pages/AdvancedEditorPage';
 import WorkflowsPage from './pages/WorkflowsPage';
 import ParametersPage from './pages/ParametersPage';
+import BackendManagerPage from './pages/BackendManagerPage';
 import SettingsPage from './pages/SettingsPage';
 
 // Context
@@ -45,6 +46,7 @@ function App() {
                 <Route path="/advanced-editor" element={<AdvancedEditorPage />} />
                 <Route path="/workflows" element={<WorkflowsPage />} />
                 <Route path="/parameters" element={<ParametersPage />} />
+                <Route path="/backend" element={<BackendManagerPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
