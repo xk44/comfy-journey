@@ -16,13 +16,8 @@ class ComfyUIBackendTester(unittest.TestCase):
         print(f"\n🔍 Running test: {self._testMethodName}")
 
     def tearDown(self):
-        if hasattr(self, '_outcome'):
-            result = self._outcome.result
-            if result.wasSuccessful():
-                self.tests_passed += 1
-                print(f"✅ Test passed: {self._testMethodName}")
-            else:
-                print(f"❌ Test failed: {self._testMethodName}")
+        """Basic tearDown that only logs completion."""
+        pass
 
     def test_01_root_endpoint(self):
         """Test the root API endpoint"""
@@ -144,10 +139,10 @@ class ComfyUIBackendTester(unittest.TestCase):
 def run_tests():
     suite = unittest.TestLoader().loadTestsFromTestCase(ComfyUIBackendTester)
     result = unittest.TextTestRunner(verbosity=2).run(suite)
-    
-    tester = ComfyUIBackendTester()
-    print(f"\n📊 Tests passed: {tester.tests_passed}/{tester.tests_run}")
-    
+
+    passed = result.testsRun - len(result.failures) - len(result.errors)
+    print(f"\n📊 Tests passed: {passed}/{result.testsRun}")
+
     return 0 if result.wasSuccessful() else 1
 
 if __name__ == "__main__":
