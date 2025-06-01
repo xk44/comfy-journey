@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 import parameterService from '../services/parameterService';
@@ -7,6 +7,9 @@ import progressService from '../services/progressService';
 
 const CreatePage = () => {
   const [prompt, setPrompt] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const inputRef = useRef(null);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
@@ -87,7 +90,29 @@ const CreatePage = () => {
   }, []);
 
   const handlePromptChange = (e) => {
-    setPrompt(e.target.value);
+    const value = e.target.value;
+    setPrompt(value);
+
+    const match = value.match(/--(\w*)$/);
+    if (match) {
+      const query = match[1];
+      const filtered = parameterMappings
+        .filter((m) => m.code.startsWith(`--${query}`))
+        .map((m) => m.code);
+      setSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSuggestionClick = (code) => {
+    const newValue = prompt.replace(/--\w*$/, code + ' ');
+    setPrompt(newValue);
+    setShowSuggestions(false);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   const handleGenerate = async () => {
@@ -174,6 +199,7 @@ const CreatePage = () => {
       <div className="prompt-container">
         <div className="prompt-input-wrapper">
           <input
+            ref={inputRef}
             type="text"
             className="prompt-input"
             placeholder="What will you imagine?"
@@ -181,6 +207,15 @@ const CreatePage = () => {
             onChange={handlePromptChange}
             onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
           />
+          {showSuggestions && (
+            <ul className="prompt-suggestions">
+              {suggestions.map((s) => (
+                <li key={s} onMouseDown={() => handleSuggestionClick(s)}>
+                  {s}
+                </li>
+              ))}
+            </ul>
+          )}
           
           <div className="prompt-tools">
             <button className="tool-button" title="Random Prompt">
