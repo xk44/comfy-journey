@@ -27,7 +27,7 @@ Connect the frontend Workflow Manager UI to this backend so that users can uploa
 
 [DONE] Implement throttling and caching when interacting with the Civitai API to respect their rate limits and usage guidelines.
 
-Build a responsive UI experience modeled after Midjourney, including keyboard shortcuts (e.g. `/` to focus prompt bar, ↑↓ to navigate history) and drag-and-drop image support to trigger img2img workflows.
+[PARTIAL] Build a responsive UI experience modeled after Midjourney, including keyboard shortcuts (e.g. `/` to focus prompt bar, ↑↓ to navigate history) and drag-and-drop image support to trigger img2img workflows.
 
 [DONE] Display generation progress using toast notifications or overlays that show job status transitions (queued → generating → done or error) with unique job IDs.
 
@@ -35,7 +35,7 @@ Build a responsive UI experience modeled after Midjourney, including keyboard sh
 
 [DONE] Support theme switching (dark/light) stored in local storage and toggled via the settings panel.
 
-Implement a full-featured image editing page that supports mask painting (erase/restore), brush size control, undo, and layered edits, and allows users to submit the edited image directly to workflows like inpaint or outpaint.
+[PARTIAL] Implement a full-featured image editing page that supports mask painting (erase/restore), brush size control, undo, and layered edits, and allows users to submit the edited image directly to workflows like inpaint or outpaint.
 
 Store all user-submitted prompts, workflows, image outputs, parameters, and actions in a persistent SQL database with relational consistency and auditing.
 
