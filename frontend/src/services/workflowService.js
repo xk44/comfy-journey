@@ -84,6 +84,24 @@ const executeWorkflow = async (workflowId, prompt, parameters = {}) => {
   }
 };
 
+// Stream progress updates for a job via Server-Sent Events
+// Returns the EventSource so the caller can close it when done
+const streamProgress = (jobId, onUpdate) => {
+  const es = new EventSource(`${API_URL}/api/progress/stream/${jobId}`);
+  es.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (onUpdate) onUpdate(data);
+    } catch (err) {
+      console.error('Error parsing progress update:', err);
+    }
+  };
+  es.onerror = () => {
+    es.close();
+  };
+  return es;
+};
+
 // Get custom actions for a workflow
 const getCustomActions = async (workflowId) => {
   try {
@@ -114,6 +132,7 @@ const workflowService = {
   deleteWorkflow,
   getComfyUIStatus,
   executeWorkflow,
+  streamProgress,
   getCustomActions,
   saveCustomActions
 };
