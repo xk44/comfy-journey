@@ -1,4 +1,5 @@
 import uuid
+from urllib.parse import urlparse
 
 _parameter_store = {}
 _workflow_store = {}
