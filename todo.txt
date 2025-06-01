@@ -20,7 +20,6 @@
 
 [DONE] Provide visual autocomplete in the prompt bar for available parameters as users type, showing hints for each shortcode.
 
-
 [DONE] Integrate with Civitai by allowing users to input and store their Civitai API key securely in the settings panel, encrypted and never exposed to the client or logs.
 
 [DONE] Use the Civitai API to fetch and display images, prompts, and models in the Explore page, with lazy loading and infinite scrolling for browsing high volumes of results.
@@ -45,6 +44,9 @@
 
 [DONE] Provide background cleanup and data maintenance tools for thumbnails, temp files, disk quotas, and expired image outputs to keep storage usage optimal, but keep generation jobs and images persistent in create page.
 
+[PARTIAL] Apply security best practices including CSRF protection, JWT session rotation, and input validation on all form-based or prompt data.
+
 [DONE] Apply security best practices including CSRF protection, JWT session rotation, and input validation on all form-based or prompt data.
+
 
 [DONE] Encrypt and store Civitai keys securely using a secrets manager or environment variable system, never exposing them in logs or the client.

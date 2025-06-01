@@ -11,15 +11,15 @@ from fastapi import (
     Header,
 )
 from fastapi.responses import StreamingResponse
+
 from .utils import api_response, DEBUG_MODE
 from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
 import hmac
 import hashlib
 
 from .utils import api_response, DEBUG_MODE, log_backend_call
-from .external_integrations.civitai import civitai_get
-
-from .external_integrations.civitai import fetch_json as civitai_fetch
+from .security import csrf_protect
+from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
 from cryptography.fernet import Fernet
 import base64
 from sqlalchemy.orm import Session
@@ -34,7 +34,7 @@ from .models import (
 from starlette.middleware.cors import CORSMiddleware
 from .csrf import CSRFMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, constr
 from typing import List, Dict, Any, Optional, Set
 import os
 import uuid
@@ -111,12 +111,21 @@ if not fernet_secret:
     fernet_secret = base64.urlsafe_b64encode(key_bytes).decode()
 fernet = Fernet(fernet_secret)
 
+
 # Utility helpers for managing encrypted Civitai keys
 async def get_civitai_key() -> str | None:
     if os.environ.get("CIVITAI_API_KEY"):
         return os.environ["CIVITAI_API_KEY"]
     record = await db.civitai_key.find_one({"_id": "global"})
     if record and "key" in record:
+        try:
+            return fernet.decrypt(record["key"].encode()).decode()
+        except Exception:
+            return None
+    return None
+
+# Load Civitai API key from environment or DB at startup
+
         return fernet.decrypt(record["key"].encode()).decode()
     return None
 
@@ -175,11 +184,9 @@ def verify_csrf_token(token: str) -> bool:
 if not os.environ.get("CIVITAI_API_KEY"):
     try:
         loop = asyncio.get_event_loop()
-        record = loop.run_until_complete(db.civitai_key.find_one({"_id": "global"}))
-        if record and "key" in record:
-            os.environ["CIVITAI_API_KEY"] = (
-                fernet.decrypt(record["key"].encode()).decode()
-            )
+        key = loop.run_until_complete(get_civitai_key())
+        if key:
+            os.environ["CIVITAI_API_KEY"] = key
     except Exception:
         pass
 
@@ -339,6 +346,8 @@ class ImageOutputRecord(BaseModel):
 
 
 class GenerateRequest(BaseModel):
+    prompt: constr(min_length=1, max_length=500)
+
     """Request body for starting a generation job."""
     prompt: str = Field(..., min_length=1, max_length=2000)
 
@@ -793,15 +802,21 @@ async def get_sample_workflows():
 async def start_generation(
     data: GenerateRequest,
 
+
     payload: GenerateRequest,
     background_tasks: BackgroundTasks = None,
     dbs: Session = Depends(get_sql_db),
+    _csrf: None = Depends(csrf_protect),
 ):
     """Create a fake generation job and simulate progress."""
     prompt = payload.prompt.strip()
     workflow_id = payload.workflow_id
     job_id = str(uuid.uuid4())
     jobs[job_id] = {"status": "queued", "progress": 0, "prompt": data.prompt}
+
+    # store prompt record
+    prm = Prompt(id=job_id, text=data.prompt, workflow_id=data.workflow_id)
+
 
     jobs[job_id] = {"status": "queued", "progress": 0, "prompt": payload.prompt}
 
@@ -939,6 +954,10 @@ class CivitaiKey(BaseModel):
 
 
 @api_router.post("/civitai/key")
+async def set_civitai_key(
+    data: Dict[str, str], _csrf: None = Depends(csrf_protect)
+):
+
 async def set_civitai_key(key: CivitaiKey):
     """Store the Civitai API key encrypted in the database"""
     api_key = data.get("api_key")
@@ -948,6 +967,11 @@ async def set_civitai_key(key: CivitaiKey):
 
     api_key = key.api_key
     encrypted = fernet.encrypt(api_key.encode()).decode()
+    await db.civitai_key.update_one(
+        {"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True
+    )
+    os.environ["CIVITAI_API_KEY"] = api_key
+
     await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
     os.environ["CIVITAI_API_KEY"] = api_key
 
