@@ -1,10 +1,7 @@
 import shlex
-import re
 from typing import Tuple, Dict, List, Any
 
-SHORTCODE_PATTERN = re.compile(
-    r"--(?P<key>\w+)(?:\s+(?P<value>(\"[^\"]*\"|'[^']*'|[^-]+)))?"
-)
+SHORTCODE_PATTERN = re.compile(r"--(?P<key>\w+)(?:\s+(?P<value>(\"[^\"]*\"|'[^']*'|[^-]+)))?")
 
 
 def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
@@ -13,6 +10,12 @@ def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
     Supports tokens in the form ``--key value`` or ``--key=value``. Values may
     be quoted with single or double quotes.
     Returns ``(clean_prompt, params_dict)``.
+
+    """Parse a prompt extracting shortcode parameters.
+
+    Supports tokens in the form ``--key value`` or ``--key=value``.
+    Values may be quoted with single or double quotes.
+    Returns a tuple ``(clean_prompt, params_dict)``.
     """
     params: Dict[str, str] = {}
     remaining_tokens: List[str] = []
@@ -22,11 +25,10 @@ def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
     while i < len(tokens):
         token = tokens[i]
         if token.startswith("--"):
-            key_val = token[2:]
-            if "=" in key_val:
-                key, value = key_val.split("=", 1)
+            if "=" in token:
+                key, value = token[2:].split("=", 1)
             else:
-                key = key_val
+                key = token[2:]
                 value = None
                 if i + 1 < len(tokens) and not tokens[i + 1].startswith("--"):
                     i += 1
@@ -43,8 +45,11 @@ def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
             remaining_tokens.append(token)
         i += 1
 
+    clean_prompt = " ".join(remaining_tokens).strip()
+    clean_prompt = SHORTCODE_PATTERN.sub("", clean_prompt).strip()
     clean_prompt = " ".join(remaining_tokens)
     clean_prompt = SHORTCODE_PATTERN.sub("", clean_prompt).strip()
+
     return clean_prompt, params
 
 

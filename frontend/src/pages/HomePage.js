@@ -31,6 +31,8 @@ const HomePage = () => {
   const [filteredImages, setFilteredImages] = useState([]);
   const { currentUser } = useAuth();
   const [toast, setToast] = useState(null);
+  const [currentJob, setCurrentJob] = useState(null);
+  const eventSourceRef = useRef(null);
   const location = useLocation();
   const fileInputRef = useRef(null);
 
@@ -131,6 +133,12 @@ const HomePage = () => {
   }, []);
 
   useEffect(() => {
+    return () => {
+      eventSourceRef.current?.close();
+    };
+  }, []);
+
+  useEffect(() => {
     // Filter images based on search query
     if (searchQuery.trim() === "") {
       setFilteredImages(images);
@@ -151,30 +159,31 @@ const HomePage = () => {
     }
 
     setGenerating(true);
-    
+
     try {
-      // In a real app, this would call the API
-      console.log(`Generating image with prompt: "${prompt}" using model: ${selectedModel}`);
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Add new mock generated image
-      const newImage = {
-        id: `img${Date.now()}`,
-        url: "https://replicate.delivery/pbxt/O0SJTXzrVhRLKB6HI5CZRQkLPaDANwPj1N6Vo6EFRGvhTwCQA/out-0.png",
-        prompt: prompt,
-        workflow_id: "workflow1",
-        created_at: new Date().toISOString()
-      };
-      
-      setImages([newImage, ...images]);
-      setPrompt("");
-      showToast("Image generated successfully!", "success");
+      const resp = await workflowService.executeWorkflow(null, prompt);
+      const jobId = resp?.payload?.job_id;
+      if (!jobId) throw new Error("Invalid response from server");
+      setCurrentJob({ id: jobId, status: "queued" });
+      showToast(`Job ${jobId} queued`, "info");
+
+      // Stream progress via SSE
+      eventSourceRef.current = workflowService.streamProgress(jobId, (data) => {
+        if (!data) return;
+        if (data.status && data.status !== currentJob?.status) {
+          setCurrentJob({ id: jobId, status: data.status });
+          if (data.status === "done") {
+            showToast(`Job ${jobId} done`, "success");
+            eventSourceRef.current?.close();
+            setGenerating(false);
+          } else {
+            showToast(`Job ${jobId} ${data.status}`, "info", 1000);
+          }
+        }
+      });
     } catch (error) {
       console.error("Error generating image:", error);
       showToast("Failed to generate image. Please try again.", "error");
-    } finally {
       setGenerating(false);
     }
   };
