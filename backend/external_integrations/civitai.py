@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import time
 import hashlib
@@ -63,8 +65,6 @@ This module adds a minimal caching layer and basic rate limiting so that
 repeated requests do not overwhelm the external service.  It is intentionally
 simple and stores data in memory only.
 """
-
-from __future__ import annotations
 
 import asyncio
 import json
