@@ -112,6 +112,11 @@ if not os.environ.get("CIVITAI_API_KEY"):
     except Exception:
         pass
 
+# Cleanup configuration
+CLEAN_PATHS = os.environ.get("CJ_CLEAN_PATHS", "").split(":")
+CLEAN_DAYS = int(os.environ.get("CJ_CLEAN_DAYS", "7"))
+CLEAN_INTERVAL = int(os.environ.get("CJ_CLEAN_INTERVAL", "0"))
+
 # Create the main app
 app = FastAPI()
 init_db()
@@ -119,6 +124,18 @@ init_db()
 # Simple in-memory job store for demo progress streaming
 jobs: Dict[str, Dict[str, Any]] = {}
 action_store: Dict[str, Dict[str, Any]] = {}
+
+
+async def _cleanup_worker() -> None:
+    """Periodically clean temporary files based on environment settings."""
+    if CLEAN_INTERVAL <= 0:
+        return
+    while True:
+        try:
+            cleanup_task(CLEAN_PATHS, CLEAN_DAYS)
+        except Exception as exc:  # pragma: no cover - log but continue
+            logging.exception("Cleanup failed: %s", exc)
+        await asyncio.sleep(CLEAN_INTERVAL)
 
 
 def get_sql_db():
@@ -747,10 +764,9 @@ async def civitai_models(limit: int = 20, page: int = 1, query: str | None = Non
 
 
 @api_router.post("/maintenance/cleanup")
-async def run_cleanup(background_tasks: BackgroundTasks, days: int = 7):
+async def run_cleanup(background_tasks: BackgroundTasks, days: int = CLEAN_DAYS):
     """Trigger background cleanup of temporary files."""
-    paths = os.environ.get("CJ_CLEAN_PATHS", "").split(":")
-    background_tasks.add_task(cleanup_task, paths, days)
+    background_tasks.add_task(cleanup_task, CLEAN_PATHS, days)
     return api_response({"message": "Cleanup started"})
 
 
@@ -770,6 +786,13 @@ app.add_middleware(
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
+
+
+@app.on_event("startup")
+async def startup_tasks() -> None:
+    """Launch background maintenance tasks."""
+    if CLEAN_INTERVAL > 0:
+        asyncio.create_task(_cleanup_worker())
 
 
 @app.on_event("shutdown")
