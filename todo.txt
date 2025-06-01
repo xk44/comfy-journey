@@ -1,16 +1,16 @@
-[DONE] Design a lightweight backend that proxies requests from the frontend to the ComfyUI API endpoints, including support for submitting prompts, querying image job history, and managing the active generation queue.
+[DONE-2] Design a lightweight backend that proxies requests from the frontend to the ComfyUI API endpoints, including support for submitting prompts, querying image job history, and managing the active generation queue.
 
-[DONE] Implement a real-time progress system using WebSockets or Server-Sent Events that pushes image generation updates and queue status to the frontend UI without polling.
+[DONE-2] Implement a real-time progress system using WebSockets or Server-Sent Events that pushes image generation updates and queue status to the frontend UI without polling.
 
-[DONE] Implement a real-time progress system using WebSockets or Server-Sent Events that pushes image generation updates and queue status to the frontend UI without polling.
+[DONE-2] Implement a real-time progress system using WebSockets or Server-Sent Events that pushes image generation updates and queue status to the frontend UI without polling.
 
-[DONE] Standardize all backend responses to return a consistent structure including success status, payload, and full debug info or error traces if in development mode.
+[DONE-2] Standardize all backend responses to return a consistent structure including success status, payload, and full debug info or error traces if in development mode.
 
-[DONE] Create a relational schema for workflows and user-defined actions that maps each frontend button (like upscale, zoom, pan) to a specific ComfyUI workflow.
+[DONE-2] Create a relational schema for workflows and user-defined actions that maps each frontend button (like upscale, zoom, pan) to a specific ComfyUI workflow.
 
-[DONE] Connect the frontend Workflow Manager UI to this backend so that users can upload, edit, delete, and assign workflows to action slots, including dynamic parameter support per action.
+[DONE-2] Connect the frontend Workflow Manager UI to this backend so that users can upload, edit, delete, and assign workflows to action slots, including dynamic parameter support per action.
 
-[DONE] Connect the frontend Workflow Manager UI to this backend so that users can upload, edit, delete, and assign workflows to action slots, including dynamic parameter support per action.
+[DONE-2] Connect the frontend Workflow Manager UI to this backend so that users can upload, edit, delete, and assign workflows to action slots, including dynamic parameter support per action.
 
 [DONE] Develop a prompt-parsing engine that recognizes shortcodes like "--ar 16:9" or "--style vivid", parses them reliably, and maps them to specific node parameter updates in one or more workflows.
 

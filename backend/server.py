@@ -1,119 +1,100 @@
+from __future__ import annotations
+
+import asyncio
+import base64
+import json
+import logging
+import os
+import types
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Set
+
+import requests
+from cryptography.fernet import Fernet
 from fastapi import (
-    FastAPI,
     APIRouter,
-    HTTPException,
-    Body,
+    BackgroundTasks,
     Depends,
+    FastAPI,
+    HTTPException,
+    Header,
     Request,
     WebSocket,
     WebSocketDisconnect,
-    BackgroundTasks,
-    Header,
 )
 from fastapi.responses import StreamingResponse
-
-from .utils import api_response, DEBUG_MODE
-from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
-import hmac
-import hashlib
-
-from .utils import api_response, DEBUG_MODE, log_backend_call
-from .security import csrf_protect
-from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
-from cryptography.fernet import Fernet
-import base64
 from sqlalchemy.orm import Session
-from .models import (
-    SessionLocal,
-    init_db,
-    Workflow,
-    Action,
-    Prompt,
-    ImageOutput,
-)
 from starlette.middleware.cors import CORSMiddleware
+
 from .csrf import CSRFMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel, Field, constr
-from typing import List, Dict, Any, Optional, Set
-import os
-import uuid
-from datetime import datetime
-import logging
-import asyncio
-import json
-import requests
-from scripts.cleanup import cleanup as cleanup_task
-
-# Load environment variables
-from dotenv import load_dotenv
-
-load_dotenv()
-
-# MongoDB connection
-mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-client = AsyncIOMotorClient(mongo_url)
-db = client.get_database("comfyui_frontend")
-
-# In-memory collection fallback for tests or when MongoDB is unavailable
-class _MemoryCursor:
-    def __init__(self, data):
-        self._data = list(data)
-
-    async def to_list(self, *_args, **_kwargs):
-        return list(self._data)
+from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
+from .models import Action, ImageOutput, Prompt, SessionLocal, Workflow, init_db
+from .utils import DEBUG_MODE, api_response, log_backend_call
 
 
-class _MemoryCollection:
-    def __init__(self):
-        self.store = {}
+# ---------------------------------------------------------------------------
+# Mongo-style collections (used for parameter/action/workflow mappings)
+# ---------------------------------------------------------------------------
 
-    async def insert_one(self, doc):
-        self.store[doc["_id"]] = doc
+try:
+    from motor.motor_asyncio import AsyncIOMotorClient
 
-    def find(self):
-        return _MemoryCursor(self.store.values())
+    mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+    _mongo_client = AsyncIOMotorClient(mongo_url)
+    db = _mongo_client.get_database("comfyui_frontend")
+except Exception:  # pragma: no cover - fallback for tests
+    class MemoryCollection:
+        def __init__(self) -> None:
+            self.store: Dict[str, Dict[str, Any]] = {}
 
-    async def update_one(self, query, update):
-        _id = query.get("_id")
-        if _id in self.store:
-            self.store[_id].update(update.get("$set", {}))
+        async def insert_one(self, doc: Dict[str, Any]) -> None:
+            self.store[doc["_id"]] = doc
 
-    async def delete_one(self, query):
-        _id = query.get("_id")
-        if _id in self.store:
-            del self.store[_id]
+        def find(self):
+            class Cursor:
+                def __init__(self, data: Dict[str, Dict[str, Any]]) -> None:
+                    self._data = list(data.values())
 
-    async def find_one(self, query):
-        _id = query.get("_id")
-        return self.store.get(_id)
+                async def to_list(self, _limit: int) -> List[Dict[str, Any]]:
+                    return list(self._data)
+
+            return Cursor(self.store)
+
+        async def update_one(self, query: Dict[str, Any], update: Dict[str, Any], upsert: bool = False) -> None:
+            _id = query.get("_id")
+            doc = self.store.get(_id, {})
+            doc.update(update.get("$set", {}))
+            self.store[_id] = doc
+
+        async def delete_one(self, query: Dict[str, Any]) -> None:
+            self.store.pop(query.get("_id"), None)
+
+        async def find_one(self, query: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+            return self.store.get(query.get("_id"))
+
+    db = types.SimpleNamespace(
+        parameter_mappings=MemoryCollection(),
+        workflow_mappings=MemoryCollection(),
+        action_mappings=MemoryCollection(),
+        civitai_key=MemoryCollection(),
+    )
 
 
-if not hasattr(db, "action_mappings"):
-    db.action_mappings = _MemoryCollection()
-if not hasattr(db, "workflow_mappings"):
-    db.workflow_mappings = _MemoryCollection()
-if not hasattr(db, "parameter_mappings"):
-    db.parameter_mappings = _MemoryCollection()
-if not hasattr(db, "civitai_key"):
-    db.civitai_key = _MemoryCollection()
+# ---------------------------------------------------------------------------
+# Helpers for encrypted Civitai API key storage
+# ---------------------------------------------------------------------------
 
-# Base URL for the ComfyUI backend
-COMFYUI_BASE_URL = os.environ.get("COMFYUI_BASE_URL", "http://localhost:8188")
-
-# Encryption setup for storing sensitive keys
 fernet_secret = os.environ.get("FERNET_SECRET")
 if not fernet_secret:
-    secret = os.environ.get("SECRET_KEY", "default-secret-key")
+    secret = os.environ.get("SECRET_KEY", "secret-key")
     key_bytes = secret.encode()[:32]
-    if len(key_bytes) < 32:
-        key_bytes = key_bytes + b"0" * (32 - len(key_bytes))
+    key_bytes += b"0" * (32 - len(key_bytes))
     fernet_secret = base64.urlsafe_b64encode(key_bytes).decode()
 fernet = Fernet(fernet_secret)
 
 
-# Utility helpers for managing encrypted Civitai keys
-async def get_civitai_key() -> str | None:
+async def get_civitai_key() -> Optional[str]:
     if os.environ.get("CIVITAI_API_KEY"):
         return os.environ["CIVITAI_API_KEY"]
     record = await db.civitai_key.find_one({"_id": "global"})
@@ -124,123 +105,55 @@ async def get_civitai_key() -> str | None:
             return None
     return None
 
-# Load Civitai API key from environment or DB at startup
-
-        return fernet.decrypt(record["key"].encode()).decode()
-    return None
-
 
 async def store_civitai_key(api_key: str) -> None:
     encrypted = fernet.encrypt(api_key.encode()).decode()
     await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
     os.environ["CIVITAI_API_KEY"] = api_key
 
-# Load Civitai API key on startup
-try:
-    loop = asyncio.get_event_loop()
-    if loop.is_running():
-        loop.create_task(get_civitai_key())
-    else:
-        loop.run_until_complete(get_civitai_key())
-except RuntimeError:
-    asyncio.run(get_civitai_key())
 
-# Load Civitai API key from environment, secrets file, or DB
-civitai_file = os.environ.get("CIVITAI_KEY_FILE")
-if civitai_file and os.path.isfile(civitai_file):
-    try:
-        with open(civitai_file, "r", encoding="utf-8") as fh:
-            os.environ["CIVITAI_API_KEY"] = fh.read().strip()
-    except Exception:
-        pass
-elif not os.environ.get("CIVITAI_API_KEY"):
+# ---------------------------------------------------------------------------
+# FastAPI application setup
+# ---------------------------------------------------------------------------
 
-# CSRF protection setup
+COMFYUI_BASE_URL = os.environ.get("COMFYUI_BASE_URL", "http://localhost:8188")
 
-CSRF_SECRET = os.environ.get("CJ_CSRF_SECRET")
-
-
-def generate_csrf_token() -> str:
-    """Create a signed CSRF token."""
-    if not CSRF_SECRET:
-        return ""
-    raw = str(uuid.uuid4())
-    sig = hmac.new(CSRF_SECRET.encode(), raw.encode(), hashlib.sha256).hexdigest()
-    return f"{raw}:{sig}"
-
-
-def verify_csrf_token(token: str) -> bool:
-    """Validate a signed CSRF token."""
-    if not CSRF_SECRET:
-        return True
-    try:
-        raw, sig = token.split(":", 1)
-    except ValueError:
-        return False
-    expected = hmac.new(CSRF_SECRET.encode(), raw.encode(), hashlib.sha256).hexdigest()
-    return hmac.compare_digest(sig, expected)
-
-# Load Civitai API key from environment or DB
-if not os.environ.get("CIVITAI_API_KEY"):
-    try:
-        loop = asyncio.get_event_loop()
-        key = loop.run_until_complete(get_civitai_key())
-        if key:
-            os.environ["CIVITAI_API_KEY"] = key
-    except Exception:
-        pass
-
-if not os.environ.get("CIVITAI_API_KEY"):
-    key_path = os.environ.get("CIVITAI_KEY_FILE")
-    if key_path and os.path.isfile(key_path):
-        try:
-            with open(key_path, "rb") as fh:
-                encrypted = fh.read().strip()
-            os.environ["CIVITAI_API_KEY"] = fernet.decrypt(encrypted).decode()
-        except Exception:
-            logging.exception("Failed to load Civitai key from file")
-
-# Cleanup configuration
-CLEAN_PATHS = os.environ.get("CJ_CLEAN_PATHS", "").split(":")
-CLEAN_DAYS = int(os.environ.get("CJ_CLEAN_DAYS", "7"))
-CLEAN_INTERVAL = int(os.environ.get("CJ_CLEAN_INTERVAL", "0"))
-
-# CSRF configuration
-CSRF_TOKEN = os.environ.get("CSRF_TOKEN", "")
-CSRF_DISABLED = os.environ.get("CJ_CSRF_DISABLED", "true").lower() == "true"
-
-# Create the main app
 app = FastAPI()
 init_db()
+api_router = APIRouter(prefix="/api")
 
-# Simple CSRF protection middleware
-@app.middleware("http")
-async def csrf_middleware(request: Request, call_next):
-    if CSRF_DISABLED or request.method in ("GET", "OPTIONS", "HEAD"):
-        return await call_next(request)
-    token = request.headers.get("X-CSRF-Token")
-    if not token or token != CSRF_TOKEN:
-        return api_response(success=False, error="invalid_csrf_token")
-    return await call_next(request)
+app.add_middleware(CSRFMiddleware, cookie_secure=not DEBUG_MODE)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.middleware("http")
-async def csrf_middleware(request: Request, call_next):
-    if CSRF_SECRET and request.method in {"POST", "PUT", "DELETE", "PATCH"}:
-        token = request.headers.get("X-CSRF-Token")
-        cookie = request.cookies.get("csrf_token")
-        if not token or token != cookie or not verify_csrf_token(token):
-            return api_response(None, success=False, error="CSRF validation failed")
-    response = await call_next(request)
-    return response
 
-# Simple in-memory job store for demo progress streaming
+# ---------------------------------------------------------------------------
+# Utility / dependency functions
+# ---------------------------------------------------------------------------
+
+
+def get_sql_db() -> Session:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Progress tracking
+# ---------------------------------------------------------------------------
+
 jobs: Dict[str, Dict[str, Any]] = {}
 ws_clients: Dict[str, Set[WebSocket]] = {}
-action_store: Dict[str, Dict[str, Any]] = {}
 
 
 async def _notify_websockets(job_id: str) -> None:
-    """Send job progress updates to all connected WebSocket clients."""
     job = jobs.get(job_id)
     if not job:
         return
@@ -253,59 +166,12 @@ async def _notify_websockets(job_id: str) -> None:
         except Exception:
             ws_clients[job_id].discard(ws)
 
-async def _cleanup_worker() -> None:
-    """Periodically clean temporary files based on environment settings."""
-    if CLEAN_INTERVAL <= 0:
-        return
-    while True:
-        try:
-            cleanup_task(CLEAN_PATHS, CLEAN_DAYS)
-        except Exception as exc:  # pragma: no cover - log but continue
-            logging.exception("Cleanup failed: %s", exc)
-        await asyncio.sleep(CLEAN_INTERVAL)
 
+# ---------------------------------------------------------------------------
+# API models
+# ---------------------------------------------------------------------------
 
-def get_sql_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@app.exception_handler(HTTPException)
-async def handle_http_exception(request: Request, exc: HTTPException):
-    debug = {"detail": exc.detail, "status_code": exc.status_code}
-    return api_response(success=False, error=exc.detail, debug_info=debug)
-
-
-@app.exception_handler(Exception)
-async def handle_generic_exception(request: Request, exc: Exception):
-    debug = {"error_type": type(exc).__name__, "detail": str(exc)}
-    return api_response(success=False, error=str(exc), debug_info=debug)
-
-
-# Create a router with the /api prefix
-api_router = APIRouter(prefix="/api")
-
-@api_router.get("/csrf")
-async def get_csrf_token():
-    token = generate_csrf_token()
-    resp = api_response({"token": token})
-    if token:
-        resp.set_cookie("csrf_token", token, httponly=True)
-    return resp
-
-
-# Define Models
-class ParameterMapping(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    code: str
-    node_id: str
-    param_name: str
-    value_template: str = "{value}"
-    description: str = ""
-    workflow_id: Optional[str] = None
+from pydantic import BaseModel, Field, constr
 
 
 class WorkflowMapping(BaseModel):
@@ -313,14 +179,6 @@ class WorkflowMapping(BaseModel):
     name: str
     description: str = ""
     data: Optional[Dict[str, Any]] = None
-
-class ActionMapping(BaseModel):
-    """Map a UI action button to a workflow"""
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    workflow_id: str
-    description: str = ""
-    parameters: Optional[Dict[str, Any]] = None
 
 
 class ActionMapping(BaseModel):
@@ -331,183 +189,36 @@ class ActionMapping(BaseModel):
     parameters: Optional[Dict[str, Any]] = None
 
 
-class PromptRecord(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    text: str
-    workflow_id: Optional[str] = None
-    created_at: Optional[str] = None
-
-
-class ImageOutputRecord(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    prompt_id: str
-    file_path: str
-    created_at: Optional[str] = None
-
-
 class GenerateRequest(BaseModel):
-    prompt: constr(min_length=1, max_length=500)
-
-    """Request body for starting a generation job."""
-    prompt: str = Field(..., min_length=1, max_length=2000)
-
-    """Input model for the /generate endpoint."""
-    prompt: str = Field(..., min_length=1, max_length=1000)
-
-    prompt: str = Field(..., max_length=2000)
+    prompt: constr(min_length=1, max_length=2000)
     workflow_id: Optional[str] = None
 
 
-# Parameter Manager Routes
-@api_router.post("/parameters", response_model=ParameterMapping)
-async def create_parameter_mapping(mapping: ParameterMapping):
-    mapping_dict = mapping.dict()
-    # Store the ID in the _id field for MongoDB
-    mapping_dict["_id"] = mapping_dict["id"]
-    await db.parameter_mappings.insert_one(mapping_dict)
-    return api_response(mapping_dict)
+class CivitaiKey(BaseModel):
+    api_key: str = Field(..., min_length=1)
 
 
-@api_router.get("/parameters", response_model=List[ParameterMapping])
-async def get_parameter_mappings():
-    mappings = await db.parameter_mappings.find().to_list(1000)
-    for mapping in mappings:
-        mapping["id"] = str(mapping.get("_id", mapping.get("id", "")))
-        if "_id" in mapping:
-            del mapping["_id"]
-    return api_response(mappings)
+# ---------------------------------------------------------------------------
+# Relational workflow and action endpoints
+# ---------------------------------------------------------------------------
 
 
-@api_router.put("/parameters/{param_id}", response_model=ParameterMapping)
-async def update_parameter_mapping(param_id: str, mapping: ParameterMapping):
-    mapping_dict = mapping.dict()
-    # Remove id for the update
-    if "id" in mapping_dict:
-        del mapping_dict["id"]
-
-    await db.parameter_mappings.update_one({"_id": param_id}, {"$set": mapping_dict})
-    return api_response({**mapping_dict, "id": param_id})
-
-
-@api_router.delete("/parameters/{param_id}")
-async def delete_parameter_mapping(param_id: str):
-    await db.parameter_mappings.delete_one({"_id": param_id})
-    return api_response({"message": "Parameter mapping deleted"})
-
-
-# Workflow Manager Routes
-@api_router.post("/workflows", response_model=WorkflowMapping)
-async def create_workflow_mapping(mapping: WorkflowMapping):
-    mapping_dict = mapping.dict()
-    # Store the ID in the _id field for MongoDB
-    mapping_dict["_id"] = mapping_dict["id"]
-    await db.workflow_mappings.insert_one(mapping_dict)
-    return api_response(mapping_dict)
-
-
-@api_router.get("/workflows", response_model=List[WorkflowMapping])
-async def get_workflow_mappings():
-    mappings = await db.workflow_mappings.find().to_list(1000)
-    for mapping in mappings:
-        mapping["id"] = str(mapping.get("_id", mapping.get("id", "")))
-        if "_id" in mapping:
-            del mapping["_id"]
-    return api_response(mappings)
-
-
-@api_router.put("/workflows/{workflow_id}", response_model=WorkflowMapping)
-async def update_workflow_mapping(workflow_id: str, mapping: WorkflowMapping):
-    mapping_dict = mapping.dict()
-    # Remove id for the update
-    if "id" in mapping_dict:
-        del mapping_dict["id"]
-
-    await db.workflow_mappings.update_one({"_id": workflow_id}, {"$set": mapping_dict})
-    return api_response({**mapping_dict, "id": workflow_id})
-
-
-@api_router.delete("/workflows/{workflow_id}")
-async def delete_workflow_mapping(workflow_id: str):
-    await db.workflow_mappings.delete_one({"_id": workflow_id})
-    return api_response({"message": "Workflow mapping deleted"})
-
-# Action Manager Routes
-@api_router.post("/actions", response_model=ActionMapping)
-async def create_action_mapping(mapping: ActionMapping):
-    mapping_dict = mapping.dict()
-    mapping_dict["_id"] = mapping_dict["id"]
-    if hasattr(db, "action_mappings"):
-        await db.action_mappings.insert_one(mapping_dict)
-    else:
-        action_store[mapping_dict["id"]] = mapping_dict
-    return api_response(mapping_dict)
-
-@api_router.get("/actions", response_model=List[ActionMapping])
-async def get_action_mappings():
-    if hasattr(db, "action_mappings"):
-        mappings = await db.action_mappings.find().to_list(1000)
-    else:
-        mappings = list(action_store.values())
-    for m in mappings:
-        m["id"] = str(m.get("_id", m.get("id", "")))
-        if "_id" in m:
-            del m["_id"]
-    return api_response(mappings)
-
-@api_router.put("/actions/{action_id}", response_model=ActionMapping)
-async def update_action_mapping(action_id: str, mapping: ActionMapping):
-    mapping_dict = mapping.dict()
-    if "id" in mapping_dict:
-        del mapping_dict["id"]
-    if hasattr(db, "action_mappings"):
-        await db.action_mappings.update_one({"_id": action_id}, {"$set": mapping_dict})
-    else:
-        if action_id in action_store:
-            action_store[action_id].update(mapping_dict)
-    return api_response({**mapping_dict, "id": action_id})
-
-@api_router.delete("/actions/{action_id}")
-async def delete_action_mapping(action_id: str):
-    await db.action_mappings.delete_one({"_id": action_id})
-
-    if hasattr(db, "action_mappings"):
-        await db.action_mappings.delete_one({"_id": action_id})
-    else:
-        action_store.pop(action_id, None)
-    return api_response({"message": "Action mapping deleted"})
-
-# Relational Workflow Endpoints using SQLAlchemy
 @api_router.post("/relational/workflows", response_model=WorkflowMapping)
-async def create_rel_workflow(
-    mapping: WorkflowMapping, dbs: Session = Depends(get_sql_db)
-):
-    wf = Workflow(
-        id=mapping.id,
-        name=mapping.name,
-        description=mapping.description,
-        data=json.dumps(mapping.data or {}),
-    )
+async def create_rel_workflow(mapping: WorkflowMapping, dbs: Session = Depends(get_sql_db)):
+    wf = Workflow(id=mapping.id, name=mapping.name, description=mapping.description, data=json.dumps(mapping.data or {}))
     dbs.add(wf)
     dbs.commit()
     return api_response(mapping.dict())
 
 
 @api_router.post("/relational/workflows/upload", response_model=WorkflowMapping)
-async def upload_rel_workflow(
-    payload: Dict[str, Any], dbs: Session = Depends(get_sql_db)
-):
-    """Upload a workflow JSON payload and store it."""
+async def upload_rel_workflow(payload: Dict[str, Any], dbs: Session = Depends(get_sql_db)):
     data = payload.get("data")
     if not isinstance(data, dict):
         raise HTTPException(status_code=400, detail="data field required")
     name = payload.get("name", f"workflow-{uuid.uuid4()}.json")
     mapping = WorkflowMapping(name=name, data=data)
-    wf = Workflow(
-        id=mapping.id,
-        name=mapping.name,
-        description=mapping.description,
-        data=json.dumps(mapping.data or {}),
-    )
+    wf = Workflow(id=mapping.id, name=mapping.name, description=mapping.description, data=json.dumps(mapping.data or {}))
     dbs.add(wf)
     dbs.commit()
     return api_response(mapping.dict())
@@ -529,9 +240,7 @@ async def get_rel_workflows(dbs: Session = Depends(get_sql_db)):
 
 
 @api_router.put("/relational/workflows/{wf_id}", response_model=WorkflowMapping)
-async def update_rel_workflow(
-    wf_id: str, mapping: WorkflowMapping, dbs: Session = Depends(get_sql_db)
-):
+async def update_rel_workflow(wf_id: str, mapping: WorkflowMapping, dbs: Session = Depends(get_sql_db)):
     wf = dbs.query(Workflow).filter(Workflow.id == wf_id).first()
     if not wf:
         raise HTTPException(status_code=404, detail="Workflow not found")
@@ -552,7 +261,9 @@ async def delete_rel_workflow(wf_id: str, dbs: Session = Depends(get_sql_db)):
     return api_response({"message": "Workflow deleted"})
 
 
-# ----- Action endpoints -----
+# ----- Action mappings -----
+
+
 @api_router.post("/relational/actions", response_model=ActionMapping)
 async def create_action(mapping: ActionMapping, dbs: Session = Depends(get_sql_db)):
     action = Action(
@@ -584,9 +295,7 @@ async def get_actions(dbs: Session = Depends(get_sql_db)):
 
 
 @api_router.put("/relational/actions/{action_id}", response_model=ActionMapping)
-async def update_action(
-    action_id: str, mapping: ActionMapping, dbs: Session = Depends(get_sql_db)
-):
+async def update_action(action_id: str, mapping: ActionMapping, dbs: Session = Depends(get_sql_db)):
     action = dbs.query(Action).filter(Action.id == action_id).first()
     if not action:
         raise HTTPException(status_code=404, detail="Action not found")
@@ -608,8 +317,10 @@ async def delete_action(action_id: str, dbs: Session = Depends(get_sql_db)):
     return api_response({"message": "Action mapping deleted"})
 
 
-# ----- Prompt and output endpoints -----
-@api_router.get("/relational/prompts", response_model=List[PromptRecord])
+# ----- Prompt/output records -----
+
+
+@api_router.get("/relational/prompts")
 async def get_prompts(dbs: Session = Depends(get_sql_db)):
     prompts = dbs.query(Prompt).all()
     payload = [
@@ -624,7 +335,7 @@ async def get_prompts(dbs: Session = Depends(get_sql_db)):
     return api_response(payload)
 
 
-@api_router.get("/relational/outputs", response_model=List[ImageOutputRecord])
+@api_router.get("/relational/outputs")
 async def get_outputs(dbs: Session = Depends(get_sql_db)):
     outputs = dbs.query(ImageOutput).all()
     payload = [
@@ -639,199 +350,23 @@ async def get_outputs(dbs: Session = Depends(get_sql_db)):
     return api_response(payload)
 
 
-# Root path response
-@api_router.get("/")
-async def root():
-    return api_response({"message": "ComfyUI Frontend API"})
+# ---------------------------------------------------------------------------
+# Generation endpoints and progress streaming
+# ---------------------------------------------------------------------------
 
 
-# Add ComfyUI workflow endpoints that were missing
-@api_router.get("/comfyui/workflows")
-async def get_comfyui_workflows():
-    """Get available ComfyUI workflows"""
-    # This is a sample response for the endpoint
-    sample_workflows = [
-        {
-            "id": "workflow1",
-            "name": "Basic Text to Image",
-            "description": "Simple text to image generation workflow",
-            "data": {
-                "nodes": {
-                    "1": {
-                        "id": "1",
-                        "type": "text_encoder",
-                        "title": "Text Encoder",
-                        "properties": {
-                            "prompt": "A beautiful landscape",
-                            "width": 512,
-                            "height": 512,
-                            "steps": 20,
-                        },
-                    },
-                    "2": {
-                        "id": "2",
-                        "type": "sampler",
-                        "title": "Sampler",
-                        "properties": {"sampler_name": "ddim", "steps": 20, "cfg": 7.5},
-                    },
-                }
-            },
-        },
-        {
-            "id": "workflow2",
-            "name": "Inpainting Workflow",
-            "description": "For inpainting masked regions",
-            "data": {
-                "nodes": {
-                    "1": {
-                        "id": "1",
-                        "type": "image_loader",
-                        "title": "Image Loader",
-                        "properties": {
-                            "image_path": "",
-                            "mask_path": "",
-                            "resize_mode": "crop",
-                        },
-                    },
-                    "2": {
-                        "id": "2",
-                        "type": "inpaint_model",
-                        "title": "Inpaint Model",
-                        "properties": {
-                            "prompt": "A beautiful mountain landscape",
-                            "steps": 20,
-                            "cfg": 7.5,
-                            "denoise": 0.8,
-                        },
-                    },
-                }
-            },
-        },
-    ]
-    return api_response(sample_workflows)
-
-
-@api_router.get("/comfyui/status")
-async def get_comfyui_status():
-    """Get the status of the ComfyUI server"""
-    # This is a sample response for the endpoint
-    return api_response(
-        {
-            "status": "running",
-            "version": "1.0.0",
-            "gpu_info": {
-                "name": "Sample GPU",
-                "memory_total": 8192,
-                "memory_used": 2048,
-            },
-        }
-    )
-
-
-# Add sample workflow endpoint
-@api_router.get("/sample-workflows")
-async def get_sample_workflows():
-    return api_response(
-        [
-            {
-                "id": "workflow1",
-                "name": "Basic Text to Image",
-                "description": "Simple text to image generation workflow",
-                "data": {
-                    "nodes": {
-                        "1": {
-                            "id": "1",
-                            "type": "text_encoder",
-                            "title": "Text Encoder",
-                            "properties": {
-                                "prompt": "A beautiful landscape",
-                                "width": 512,
-                                "height": 512,
-                                "steps": 20,
-                            },
-                        },
-                        "2": {
-                            "id": "2",
-                            "type": "sampler",
-                            "title": "Sampler",
-                            "properties": {
-                                "sampler_name": "ddim",
-                                "steps": 20,
-                                "cfg": 7.5,
-                            },
-                        },
-                    }
-                },
-            },
-            {
-                "id": "workflow2",
-                "name": "Inpainting Workflow",
-                "description": "For inpainting masked regions",
-                "data": {
-                    "nodes": {
-                        "1": {
-                            "id": "1",
-                            "type": "image_loader",
-                            "title": "Image Loader",
-                            "properties": {
-                                "image_path": "",
-                                "mask_path": "",
-                                "resize_mode": "crop",
-                            },
-                        },
-                        "2": {
-                            "id": "2",
-                            "type": "inpaint_model",
-                            "title": "Inpaint Model",
-                            "properties": {
-                                "prompt": "A beautiful mountain landscape",
-                                "steps": 20,
-                                "cfg": 7.5,
-                                "denoise": 0.8,
-                            },
-                        },
-                    }
-                },
-            },
-        ]
-    )
-
-
-# Simple workflow execution and progress streaming
 @api_router.post("/generate")
-async def start_generation(
-    data: GenerateRequest,
-
-
-    payload: GenerateRequest,
-    background_tasks: BackgroundTasks = None,
-    dbs: Session = Depends(get_sql_db),
-    _csrf: None = Depends(csrf_protect),
-):
-    """Create a fake generation job and simulate progress."""
+async def start_generation(payload: GenerateRequest, background_tasks: BackgroundTasks = None, dbs: Session = Depends(get_sql_db)):
     prompt = payload.prompt.strip()
     workflow_id = payload.workflow_id
     job_id = str(uuid.uuid4())
-    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": data.prompt}
+    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": prompt}
 
-    # store prompt record
-    prm = Prompt(id=job_id, text=data.prompt, workflow_id=data.workflow_id)
-
-
-    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": payload.prompt}
-
-    # store prompt record
     prm = Prompt(id=job_id, text=prompt, workflow_id=workflow_id)
-
-    prm = Prompt(
-        id=job_id, text=data.prompt, workflow_id=data.workflow_id
-
-        id=job_id, text=payload.prompt, workflow_id=payload.workflow_id
-    )
     dbs.add(prm)
     dbs.commit()
 
-    async def run_job(jid: str):
+    async def run_job(jid: str) -> None:
         jobs[jid]["status"] = "generating"
         await _notify_websockets(jid)
         for i in range(1, 6):
@@ -840,87 +375,46 @@ async def start_generation(
             await _notify_websockets(jid)
         jobs[jid]["status"] = "done"
         await _notify_websockets(jid)
-
-        # store output record when done
         with SessionLocal() as dbi:
-            out = ImageOutput(
-                prompt_id=jid,
-                file_path=f"{jid}.png",
-            )
+            out = ImageOutput(prompt_id=jid, file_path=f"{jid}.png")
             dbi.add(out)
             dbi.commit()
 
     if background_tasks is not None:
         background_tasks.add_task(run_job, job_id)
-    else:
+    else:  # pragma: no cover - tests run sync
         asyncio.create_task(run_job(job_id))
     return api_response({"job_id": job_id})
 
 
-@api_router.get("/progress/{job_id}")
-async def get_progress(job_id: str):
-    job = jobs.get(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return api_response(job)
-
-
-@api_router.post("/auth/refresh")
-async def refresh_token(Authorization: str = Header(...)):
-    """Return a new dummy token to simulate rotation."""
-    if not Authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="invalid_token")
-    new_token = str(uuid.uuid4())
-    return api_response({"access_token": new_token})
-
-
-@api_router.get("/progress/stream/{job_id}")
-async def stream_progress(job_id: str):
-    async def event_generator():
-        while True:
-            job = jobs.get(job_id)
-            if not job:
-                payload = {"success": False, "error": "job_not_found"}
-                yield f"event: end\ndata: {json.dumps(payload)}\n\n"
-                break
-            queue_size = sum(1 for j in jobs.values() if j["status"] != "done")
-            data = {
-                "success": True,
-                "payload": {"job": job, "queue_size": queue_size},
-            }
-            yield f"data: {json.dumps(data)}\n\n"
-            if job["status"] == "done":
-                break
-            await asyncio.sleep(0.1)
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-
 @api_router.websocket("/progress/ws/{job_id}")
-async def websocket_progress(websocket: WebSocket, job_id: str):
-    await websocket.accept()
-    ws_clients.setdefault(job_id, set()).add(websocket)
+async def websocket_progress(ws: WebSocket, job_id: str):
+    await ws.accept()
+    ws_clients.setdefault(job_id, set()).add(ws)
     try:
         while True:
             job = jobs.get(job_id)
             if not job:
-                await websocket.send_json({"event": "end", "error": "job_not_found"})
+                await ws.send_json({"event": "end", "error": "job_not_found"})
                 break
             queue_size = sum(1 for j in jobs.values() if j["status"] != "done")
-            await websocket.send_json({"job": job, "queue_size": queue_size})
+            await ws.send_json({"job": job, "queue_size": queue_size})
             if job["status"] == "done":
                 break
             await asyncio.sleep(0.1)
     except WebSocketDisconnect:
         pass
     finally:
-        ws_clients[job_id].discard(websocket)
+        ws_clients[job_id].discard(ws)
 
 
-# ComfyUI proxy endpoints
+# ---------------------------------------------------------------------------
+# Simple proxy endpoints to ComfyUI
+# ---------------------------------------------------------------------------
+
+
 @api_router.post("/comfyui/prompt")
 async def proxy_comfyui_prompt(payload: Dict[str, Any]):
-    """Proxy prompt submission to the ComfyUI backend"""
     start = datetime.utcnow().timestamp()
     resp = requests.post(f"{COMFYUI_BASE_URL}/prompt", json=payload)
     data = resp.json()
@@ -930,7 +424,6 @@ async def proxy_comfyui_prompt(payload: Dict[str, Any]):
 
 @api_router.get("/comfyui/history")
 async def proxy_comfyui_history():
-    """Proxy generation history from ComfyUI"""
     start = datetime.utcnow().timestamp()
     resp = requests.get(f"{COMFYUI_BASE_URL}/history")
     data = resp.json()
@@ -940,7 +433,6 @@ async def proxy_comfyui_history():
 
 @api_router.get("/comfyui/queue")
 async def proxy_comfyui_queue():
-    """Proxy queue state from ComfyUI"""
     start = datetime.utcnow().timestamp()
     resp = requests.get(f"{COMFYUI_BASE_URL}/queue")
     data = resp.json()
@@ -948,62 +440,25 @@ async def proxy_comfyui_queue():
     return api_response(data)
 
 
-# --- Civitai API key management ---
-class CivitaiKey(BaseModel):
-    api_key: str = Field(..., min_length=1)
+# ---------------------------------------------------------------------------
+# Civitai integration
+# ---------------------------------------------------------------------------
 
 
 @api_router.post("/civitai/key")
-async def set_civitai_key(
-    data: Dict[str, str], _csrf: None = Depends(csrf_protect)
-):
-
 async def set_civitai_key(key: CivitaiKey):
-    """Store the Civitai API key encrypted in the database"""
-    api_key = data.get("api_key")
-    if not api_key:
-        raise HTTPException(status_code=400, detail="api_key required")
-    await store_civitai_key(api_key)
-
-    api_key = key.api_key
-    encrypted = fernet.encrypt(api_key.encode()).decode()
-    await db.civitai_key.update_one(
-        {"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True
-    )
-    os.environ["CIVITAI_API_KEY"] = api_key
-
-    await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
-    os.environ["CIVITAI_API_KEY"] = api_key
-
-    key_path = os.environ.get("CIVITAI_KEY_FILE")
-    if key_path:
-        try:
-            with open(key_path, "wb") as fh:
-                fh.write(encrypted.encode())
-        except Exception:
-            logging.exception("Failed to write Civitai key file")
+    await store_civitai_key(key.api_key)
     return api_response({"message": "API key saved"})
 
 
 @api_router.get("/civitai/key")
 async def has_civitai_key():
-    """Check if a Civitai API key has been stored"""
     key = await get_civitai_key()
     return api_response({"key_set": bool(key)})
 
 
-@api_router.get("/civitai/{path:path}")
-async def civitai_proxy(path: str, request: Request):
-    """Proxy GET requests to the Civitai API with caching and throttling."""
-    params = dict(request.query_params)
-    try:
-        data = await civitai_get(f"/{path}", params)
-    except requests.RequestException as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
-
 @api_router.get("/civitai/images")
-async def civitai_images(limit: int = 20, page: int = 1, query: str | None = None):
-    """Fetch images from Civitai with basic caching and rate limiting."""
+async def civitai_images(limit: int = 20, page: int = 1, query: Optional[str] = None):
     api_key = await get_civitai_key()
     params = {"limit": limit, "page": page}
     if query:
@@ -1013,8 +468,7 @@ async def civitai_images(limit: int = 20, page: int = 1, query: str | None = Non
 
 
 @api_router.get("/civitai/models")
-async def civitai_models(limit: int = 20, page: int = 1, query: str | None = None):
-    """Fetch models from Civitai with basic caching and rate limiting."""
+async def civitai_models(limit: int = 20, page: int = 1, query: Optional[str] = None):
     api_key = await get_civitai_key()
     params = {"limit": limit, "page": page}
     if query:
@@ -1023,41 +477,52 @@ async def civitai_models(limit: int = 20, page: int = 1, query: str | None = Non
     return api_response(data)
 
 
+# ---------------------------------------------------------------------------
+# Maintenance endpoint
+# ---------------------------------------------------------------------------
+
+
+from scripts.cleanup import cleanup as cleanup_task
+
+CLEAN_PATHS = os.environ.get("CJ_CLEAN_PATHS", "").split(":")
+CLEAN_DAYS = int(os.environ.get("CJ_CLEAN_DAYS", "7"))
+CLEAN_INTERVAL = int(os.environ.get("CJ_CLEAN_INTERVAL", "0"))
+
+
+async def _cleanup_worker() -> None:
+    if CLEAN_INTERVAL <= 0:
+        return
+    while True:
+        try:
+            cleanup_task(CLEAN_PATHS, CLEAN_DAYS)
+        except Exception as exc:  # pragma: no cover - log and continue
+            logging.exception("Cleanup failed: %s", exc)
+        await asyncio.sleep(CLEAN_INTERVAL)
+
+
 @api_router.post("/maintenance/cleanup")
 async def run_cleanup(background_tasks: BackgroundTasks, days: int = CLEAN_DAYS):
-    """Trigger background cleanup of temporary files."""
     background_tasks.add_task(cleanup_task, CLEAN_PATHS, days)
     return api_response({"message": "Cleanup started"})
 
 
-# Include the router in the main app
+# ---------------------------------------------------------------------------
+# Mount router and startup/shutdown events
+# ---------------------------------------------------------------------------
+
+
 app.include_router(api_router)
 
-# Add CSRF protection
-app.add_middleware(CSRFMiddleware, cookie_secure=not DEBUG_MODE)
-
-# Set up CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO)
 
 
 @app.on_event("startup")
 async def startup_tasks() -> None:
-    """Launch background maintenance tasks."""
     if CLEAN_INTERVAL > 0:
         asyncio.create_task(_cleanup_worker())
 
 
 @app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+async def shutdown_mongo() -> None:
+    if "_mongo_client" in globals():
+        _mongo_client.close()
