@@ -1,6 +1,6 @@
 [DONE] Design a lightweight backend that proxies requests from the frontend to the ComfyUI API endpoints, including support for submitting prompts, querying image job history, and managing the active generation queue.
 
-[WIP] Implement a real-time progress system using WebSockets or Server-Sent Events that pushes image generation updates and queue status to the frontend UI without polling.
+[PARTIAL] Implement a real-time progress system using WebSockets or Server-Sent Events that pushes image generation updates and queue status to the frontend UI without polling.
 
 Standardize all backend responses to return a consistent structure including success status, payload, and full debug info or error traces if in development mode.
 
@@ -26,7 +26,7 @@ Implement throttling and caching when interacting with the Civitai API to respec
 
 Build a responsive UI experience modeled after Midjourney, including keyboard shortcuts (e.g. `/` to focus prompt bar, ↑↓ to navigate history) and drag-and-drop image support to trigger img2img workflows.
 
-Display generation progress using toast notifications or overlays that show job status transitions (queued → generating → done or error) with unique job IDs.
+[DONE] Display generation progress using toast notifications or overlays that show job status transitions (queued → generating → done or error) with unique job IDs.
 
 [DONE] Add hover-activated image toolbars to each image tile in the gallery or Create page that provide quick access to mapped actions like upscale or zoom.
 
