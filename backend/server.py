@@ -31,7 +31,7 @@ from .models import (
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set
 import os
 import uuid
 from datetime import datetime
@@ -130,8 +130,23 @@ init_db()
 
 # Simple in-memory job store for demo progress streaming
 jobs: Dict[str, Dict[str, Any]] = {}
+ws_clients: Dict[str, Set[WebSocket]] = {}
 action_store: Dict[str, Dict[str, Any]] = {}
 
+
+async def _notify_websockets(job_id: str) -> None:
+    """Send job progress updates to all connected WebSocket clients."""
+    job = jobs.get(job_id)
+    if not job:
+        return
+    queue_size = sum(1 for j in jobs.values() if j["status"] != "done")
+    data = {"job": job, "queue_size": queue_size}
+    connections = ws_clients.get(job_id, set()).copy()
+    for ws in connections:
+        try:
+            await ws.send_json(data)
+        except Exception:
+            ws_clients[job_id].discard(ws)
 
 async def _cleanup_worker() -> None:
     """Periodically clean temporary files based on environment settings."""
@@ -466,6 +481,7 @@ async def delete_action(action_id: str, dbs: Session = Depends(get_sql_db)):
     dbs.commit()
     return api_response({"message": "Action mapping deleted"})
 
+
 # ----- Prompt and output endpoints -----
 @api_router.get("/relational/prompts", response_model=List[PromptRecord])
 async def get_prompts(dbs: Session = Depends(get_sql_db)):
@@ -676,10 +692,14 @@ async def start_generation(
 
     async def run_job(jid: str):
         jobs[jid]["status"] = "generating"
+        await _notify_websockets(jid)
         for i in range(1, 6):
             await asyncio.sleep(0.1)
             jobs[jid]["progress"] = i * 20
+            await _notify_websockets(jid)
         jobs[jid]["status"] = "done"
+        await _notify_websockets(jid)
+
         # store output record when done
         with SessionLocal() as dbi:
             out = ImageOutput(
@@ -729,18 +749,22 @@ async def stream_progress(job_id: str):
 @api_router.websocket("/progress/ws/{job_id}")
 async def websocket_progress(websocket: WebSocket, job_id: str):
     await websocket.accept()
+    ws_clients.setdefault(job_id, set()).add(websocket)
     try:
         while True:
             job = jobs.get(job_id)
             if not job:
                 await websocket.send_json({"event": "end", "error": "job_not_found"})
                 break
-            await websocket.send_json(job)
+            queue_size = sum(1 for j in jobs.values() if j["status"] != "done")
+            await websocket.send_json({"job": job, "queue_size": queue_size})
             if job["status"] == "done":
                 break
             await asyncio.sleep(0.1)
     except WebSocketDisconnect:
         pass
+    finally:
+        ws_clients[job_id].discard(websocket)
 
 
 # ComfyUI proxy endpoints
