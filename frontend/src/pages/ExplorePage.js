@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 
@@ -9,6 +10,8 @@ const ExplorePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+
+  const navigate = useNavigate();
   
   const { currentUser } = useAuth();
   
@@ -147,6 +150,11 @@ const ExplorePage = () => {
     // Navigate to the image detail or editor page
     console.log('Image clicked:', image);
   };
+
+  const handleUsePrompt = (image) => {
+    localStorage.setItem('imported_prompt', image.prompt);
+    navigate('/');
+  };
   
   const handleModelClick = (model) => {
     // Navigate to the model detail page
@@ -231,12 +239,15 @@ const ExplorePage = () => {
             <div className="image-grid explore-grid">
               {filteredImages.map(image => (
                 <div key={image.id} className="image-card" onClick={() => handleImageClick(image)}>
-                  <img 
-                    src={image.url} 
-                    alt={image.prompt} 
+                  <img
+                    src={image.url}
+                    alt={image.prompt}
                     className="grid-image"
                     loading="lazy"
                   />
+                  <button className="use-prompt-button" onClick={(e) => { e.stopPropagation(); handleUsePrompt(image); }}>
+                    Use Prompt
+                  </button>
                   <div className="image-info">
                     <div className="image-prompt">{image.prompt}</div>
                     <div className="image-meta">
