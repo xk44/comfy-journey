@@ -14,6 +14,15 @@ const CreatePage = () => {
 
   const { currentUser } = useAuth();
 
+  // Load a prompt from Explore page if provided
+  useEffect(() => {
+    const imported = localStorage.getItem('imported_prompt');
+    if (imported) {
+      setPrompt(imported);
+      localStorage.removeItem('imported_prompt');
+    }
+  }, []);
+
   // Categories for the tabs
   const categories = ['Random', 'Hot', 'Top Month', 'Likes'];
   const [activeCategory, setActiveCategory] = useState('Hot');

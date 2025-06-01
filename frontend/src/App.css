@@ -365,6 +365,24 @@ button:disabled {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.use-prompt-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--accent-color);
+  color: #fff;
+  border: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.9;
+}
+
+.use-prompt-button:hover {
+  background: var(--accent-hover);
+}
+
 .image-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);

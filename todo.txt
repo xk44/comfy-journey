@@ -22,7 +22,7 @@ Integrate with Civitai by allowing users to input and store their Civitai API ke
 
 Use the Civitai API to fetch and display images, prompts, and models in the Explore page, with lazy loading and infinite scrolling for browsing high volumes of results.
 
-Connect Explore-page images to the prompt system by enabling one-click "generate from this prompt" which pushes the selected prompt directly into the generation input bar.
+[DONE] Connect Explore-page images to the prompt system by enabling one-click "generate from this prompt" which pushes the selected prompt directly into the generation input bar.
 
 Implement throttling and caching when interacting with the Civitai API to respect their rate limits and usage guidelines.
 
