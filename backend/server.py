@@ -1,6 +1,7 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Body, Depends, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from .utils import api_response, DEBUG_MODE
+from .external_integrations.civitai import civitai_get
 from cryptography.fernet import Fernet
 import base64
 from starlette.middleware.cors import CORSMiddleware
@@ -36,6 +37,18 @@ if not fernet_secret:
         key_bytes = key_bytes + b"0" * (32 - len(key_bytes))
     fernet_secret = base64.urlsafe_b64encode(key_bytes).decode()
 fernet = Fernet(fernet_secret)
+
+# Load Civitai API key from environment or DB
+if not os.environ.get("CIVITAI_API_KEY"):
+    try:
+        loop = asyncio.get_event_loop()
+        record = loop.run_until_complete(db.civitai_key.find_one({"_id": "global"}))
+        if record and "key" in record:
+            os.environ["CIVITAI_API_KEY"] = (
+                fernet.decrypt(record["key"].encode()).decode()
+            )
+    except Exception:
+        pass
 
 # Create the main app
 app = FastAPI()
@@ -392,14 +405,28 @@ async def set_civitai_key(data: Dict[str, str]):
         raise HTTPException(status_code=400, detail="api_key required")
     encrypted = fernet.encrypt(api_key.encode()).decode()
     await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
+    os.environ["CIVITAI_API_KEY"] = api_key
     return api_response({"message": "API key saved"})
 
 
 @api_router.get("/civitai/key")
 async def has_civitai_key():
     """Check if a Civitai API key has been stored"""
+    if os.environ.get("CIVITAI_API_KEY"):
+        return api_response({"key_set": True})
     record = await db.civitai_key.find_one({"_id": "global"})
     return api_response({"key_set": bool(record)})
+
+
+@api_router.get("/civitai/{path:path}")
+async def civitai_proxy(path: str, request: Request):
+    """Proxy GET requests to the Civitai API with caching and throttling."""
+    params = dict(request.query_params)
+    try:
+        data = civitai_get(f"/{path}", params)
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    return api_response(data)
 
 
 # Include the router in the main app
