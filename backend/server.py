@@ -1,8 +1,19 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Body, Depends, Request, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    APIRouter,
+    HTTPException,
+    Body,
+    Depends,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import StreamingResponse
 from .utils import api_response, DEBUG_MODE
 from cryptography.fernet import Fernet
 import base64
+from sqlalchemy.orm import Session
+from .models import SessionLocal, init_db, Workflow, Action
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
@@ -17,6 +28,7 @@ import requests
 
 # Load environment variables
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # MongoDB connection
@@ -39,9 +51,18 @@ fernet = Fernet(fernet_secret)
 
 # Create the main app
 app = FastAPI()
+init_db()
 
 # Simple in-memory job store for demo progress streaming
 jobs: Dict[str, Dict[str, Any]] = {}
+
+
+def get_sql_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @app.exception_handler(HTTPException)
@@ -55,8 +76,10 @@ async def handle_generic_exception(request: Request, exc: Exception):
     debug = {"error_type": type(exc).__name__, "detail": str(exc)}
     return api_response(success=False, error=str(exc), debug_info=debug)
 
+
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
+
 
 # Define Models
 class ParameterMapping(BaseModel):
@@ -68,11 +91,21 @@ class ParameterMapping(BaseModel):
     description: str = ""
     workflow_id: Optional[str] = None
 
+
 class WorkflowMapping(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     description: str = ""
     data: Optional[Dict[str, Any]] = None
+
+
+class ActionMapping(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    button: str
+    name: str
+    workflow_id: str
+    parameters: Optional[Dict[str, Any]] = None
+
 
 # Parameter Manager Routes
 @api_router.post("/parameters", response_model=ParameterMapping)
@@ -83,6 +116,7 @@ async def create_parameter_mapping(mapping: ParameterMapping):
     await db.parameter_mappings.insert_one(mapping_dict)
     return api_response(mapping_dict)
 
+
 @api_router.get("/parameters", response_model=List[ParameterMapping])
 async def get_parameter_mappings():
     mappings = await db.parameter_mappings.find().to_list(1000)
@@ -92,22 +126,23 @@ async def get_parameter_mappings():
             del mapping["_id"]
     return api_response(mappings)
 
+
 @api_router.put("/parameters/{param_id}", response_model=ParameterMapping)
 async def update_parameter_mapping(param_id: str, mapping: ParameterMapping):
     mapping_dict = mapping.dict()
     # Remove id for the update
     if "id" in mapping_dict:
         del mapping_dict["id"]
-    
-    await db.parameter_mappings.update_one(
-        {"_id": param_id}, {"$set": mapping_dict}
-    )
+
+    await db.parameter_mappings.update_one({"_id": param_id}, {"$set": mapping_dict})
     return api_response({**mapping_dict, "id": param_id})
+
 
 @api_router.delete("/parameters/{param_id}")
 async def delete_parameter_mapping(param_id: str):
     await db.parameter_mappings.delete_one({"_id": param_id})
     return api_response({"message": "Parameter mapping deleted"})
+
 
 # Workflow Manager Routes
 @api_router.post("/workflows", response_model=WorkflowMapping)
@@ -118,6 +153,7 @@ async def create_workflow_mapping(mapping: WorkflowMapping):
     await db.workflow_mappings.insert_one(mapping_dict)
     return api_response(mapping_dict)
 
+
 @api_router.get("/workflows", response_model=List[WorkflowMapping])
 async def get_workflow_mappings():
     mappings = await db.workflow_mappings.find().to_list(1000)
@@ -127,27 +163,140 @@ async def get_workflow_mappings():
             del mapping["_id"]
     return api_response(mappings)
 
+
 @api_router.put("/workflows/{workflow_id}", response_model=WorkflowMapping)
 async def update_workflow_mapping(workflow_id: str, mapping: WorkflowMapping):
     mapping_dict = mapping.dict()
     # Remove id for the update
     if "id" in mapping_dict:
         del mapping_dict["id"]
-    
-    await db.workflow_mappings.update_one(
-        {"_id": workflow_id}, {"$set": mapping_dict}
-    )
+
+    await db.workflow_mappings.update_one({"_id": workflow_id}, {"$set": mapping_dict})
     return api_response({**mapping_dict, "id": workflow_id})
+
 
 @api_router.delete("/workflows/{workflow_id}")
 async def delete_workflow_mapping(workflow_id: str):
     await db.workflow_mappings.delete_one({"_id": workflow_id})
     return api_response({"message": "Workflow mapping deleted"})
 
+
+# Relational Workflow Endpoints using SQLAlchemy
+@api_router.post("/relational/workflows", response_model=WorkflowMapping)
+async def create_rel_workflow(
+    mapping: WorkflowMapping, dbs: Session = Depends(get_sql_db)
+):
+    wf = Workflow(
+        id=mapping.id,
+        name=mapping.name,
+        description=mapping.description,
+        data=json.dumps(mapping.data or {}),
+    )
+    dbs.add(wf)
+    dbs.commit()
+    return api_response(mapping.dict())
+
+
+@api_router.get("/relational/workflows", response_model=List[WorkflowMapping])
+async def get_rel_workflows(dbs: Session = Depends(get_sql_db)):
+    wfs = dbs.query(Workflow).all()
+    payload = [
+        {
+            "id": w.id,
+            "name": w.name,
+            "description": w.description,
+            "data": json.loads(w.data) if w.data else None,
+        }
+        for w in wfs
+    ]
+    return api_response(payload)
+
+
+@api_router.put("/relational/workflows/{wf_id}", response_model=WorkflowMapping)
+async def update_rel_workflow(
+    wf_id: str, mapping: WorkflowMapping, dbs: Session = Depends(get_sql_db)
+):
+    wf = dbs.query(Workflow).filter(Workflow.id == wf_id).first()
+    if not wf:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    wf.name = mapping.name
+    wf.description = mapping.description
+    wf.data = json.dumps(mapping.data or {})
+    dbs.commit()
+    return api_response(mapping.dict())
+
+
+@api_router.delete("/relational/workflows/{wf_id}")
+async def delete_rel_workflow(wf_id: str, dbs: Session = Depends(get_sql_db)):
+    wf = dbs.query(Workflow).filter(Workflow.id == wf_id).first()
+    if not wf:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    dbs.delete(wf)
+    dbs.commit()
+    return api_response({"message": "Workflow deleted"})
+
+
+# ----- Action endpoints -----
+@api_router.post("/actions", response_model=ActionMapping)
+async def create_action(mapping: ActionMapping, dbs: Session = Depends(get_sql_db)):
+    action = Action(
+        id=mapping.id,
+        button=mapping.button,
+        name=mapping.name,
+        workflow_id=mapping.workflow_id,
+        parameters=json.dumps(mapping.parameters or {}),
+    )
+    dbs.add(action)
+    dbs.commit()
+    return api_response(mapping.dict())
+
+
+@api_router.get("/actions", response_model=List[ActionMapping])
+async def get_actions(dbs: Session = Depends(get_sql_db)):
+    actions = dbs.query(Action).all()
+    payload = [
+        {
+            "id": a.id,
+            "button": a.button,
+            "name": a.name,
+            "workflow_id": a.workflow_id,
+            "parameters": json.loads(a.parameters) if a.parameters else None,
+        }
+        for a in actions
+    ]
+    return api_response(payload)
+
+
+@api_router.put("/actions/{action_id}", response_model=ActionMapping)
+async def update_action(
+    action_id: str, mapping: ActionMapping, dbs: Session = Depends(get_sql_db)
+):
+    action = dbs.query(Action).filter(Action.id == action_id).first()
+    if not action:
+        raise HTTPException(status_code=404, detail="Action not found")
+    action.button = mapping.button
+    action.name = mapping.name
+    action.workflow_id = mapping.workflow_id
+    action.parameters = json.dumps(mapping.parameters or {})
+    dbs.commit()
+    return api_response(mapping.dict())
+
+
+@api_router.delete("/actions/{action_id}")
+async def delete_action(action_id: str, dbs: Session = Depends(get_sql_db)):
+    action = dbs.query(Action).filter(Action.id == action_id).first()
+    if not action:
+        raise HTTPException(status_code=404, detail="Action not found")
+    dbs.delete(action)
+    dbs.commit()
+    return api_response({"message": "Action deleted"})
+
+
 # Root path response
 @api_router.get("/")
 async def root():
     return api_response({"message": "ComfyUI Frontend API"})
+
 
 # Add ComfyUI workflow endpoints that were missing
 @api_router.get("/comfyui/workflows")
@@ -169,21 +318,17 @@ async def get_comfyui_workflows():
                             "prompt": "A beautiful landscape",
                             "width": 512,
                             "height": 512,
-                            "steps": 20
-                        }
+                            "steps": 20,
+                        },
                     },
                     "2": {
                         "id": "2",
                         "type": "sampler",
                         "title": "Sampler",
-                        "properties": {
-                            "sampler_name": "ddim",
-                            "steps": 20,
-                            "cfg": 7.5
-                        }
-                    }
+                        "properties": {"sampler_name": "ddim", "steps": 20, "cfg": 7.5},
+                    },
                 }
-            }
+            },
         },
         {
             "id": "workflow2",
@@ -198,8 +343,8 @@ async def get_comfyui_workflows():
                         "properties": {
                             "image_path": "",
                             "mask_path": "",
-                            "resize_mode": "crop"
-                        }
+                            "resize_mode": "crop",
+                        },
                     },
                     "2": {
                         "id": "2",
@@ -209,94 +354,101 @@ async def get_comfyui_workflows():
                             "prompt": "A beautiful mountain landscape",
                             "steps": 20,
                             "cfg": 7.5,
-                            "denoise": 0.8
-                        }
-                    }
+                            "denoise": 0.8,
+                        },
+                    },
                 }
-            }
-        }
+            },
+        },
     ]
     return api_response(sample_workflows)
+
 
 @api_router.get("/comfyui/status")
 async def get_comfyui_status():
     """Get the status of the ComfyUI server"""
     # This is a sample response for the endpoint
-    return api_response({
-        "status": "running",
-        "version": "1.0.0",
-        "gpu_info": {
-            "name": "Sample GPU",
-            "memory_total": 8192,
-            "memory_used": 2048
+    return api_response(
+        {
+            "status": "running",
+            "version": "1.0.0",
+            "gpu_info": {
+                "name": "Sample GPU",
+                "memory_total": 8192,
+                "memory_used": 2048,
+            },
         }
-    })
+    )
+
 
 # Add sample workflow endpoint
 @api_router.get("/sample-workflows")
 async def get_sample_workflows():
-    return api_response([
-        {
-            "id": "workflow1",
-            "name": "Basic Text to Image",
-            "description": "Simple text to image generation workflow",
-            "data": {
-                "nodes": {
-                    "1": {
-                        "id": "1",
-                        "type": "text_encoder",
-                        "title": "Text Encoder",
-                        "properties": {
-                            "prompt": "A beautiful landscape",
-                            "width": 512,
-                            "height": 512,
-                            "steps": 20
-                        }
-                    },
-                    "2": {
-                        "id": "2",
-                        "type": "sampler",
-                        "title": "Sampler",
-                        "properties": {
-                            "sampler_name": "ddim",
-                            "steps": 20,
-                            "cfg": 7.5
-                        }
+    return api_response(
+        [
+            {
+                "id": "workflow1",
+                "name": "Basic Text to Image",
+                "description": "Simple text to image generation workflow",
+                "data": {
+                    "nodes": {
+                        "1": {
+                            "id": "1",
+                            "type": "text_encoder",
+                            "title": "Text Encoder",
+                            "properties": {
+                                "prompt": "A beautiful landscape",
+                                "width": 512,
+                                "height": 512,
+                                "steps": 20,
+                            },
+                        },
+                        "2": {
+                            "id": "2",
+                            "type": "sampler",
+                            "title": "Sampler",
+                            "properties": {
+                                "sampler_name": "ddim",
+                                "steps": 20,
+                                "cfg": 7.5,
+                            },
+                        },
                     }
-                }
-            }
-        },
-        {
-            "id": "workflow2",
-            "name": "Inpainting Workflow",
-            "description": "For inpainting masked regions",
-            "data": {
-                "nodes": {
-                    "1": {
-                        "id": "1",
-                        "type": "image_loader",
-                        "title": "Image Loader",
-                        "properties": {
-                            "image_path": "",
-                            "mask_path": "",
-                            "resize_mode": "crop"
-                        }
-                    },
-                    "2": {
-                        "id": "2",
-                        "type": "inpaint_model",
-                        "title": "Inpaint Model",
-                        "properties": {
-                            "prompt": "A beautiful mountain landscape",
-                            "steps": 20,
-                            "cfg": 7.5,
-                            "denoise": 0.8
-                        }
+                },
+            },
+            {
+                "id": "workflow2",
+                "name": "Inpainting Workflow",
+                "description": "For inpainting masked regions",
+                "data": {
+                    "nodes": {
+                        "1": {
+                            "id": "1",
+                            "type": "image_loader",
+                            "title": "Image Loader",
+                            "properties": {
+                                "image_path": "",
+                                "mask_path": "",
+                                "resize_mode": "crop",
+                            },
+                        },
+                        "2": {
+                            "id": "2",
+                            "type": "inpaint_model",
+                            "title": "Inpaint Model",
+                            "properties": {
+                                "prompt": "A beautiful mountain landscape",
+                                "steps": 20,
+                                "cfg": 7.5,
+                                "denoise": 0.8,
+                            },
+                        },
                     }
-                }
-            }
-        }
-    ])
+                },
+            },
+        ]
+    )
+
 
 # Simple workflow execution and progress streaming
 @api_router.post("/generate")
@@ -362,6 +514,7 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
     except WebSocketDisconnect:
         pass
 
+
 # ComfyUI proxy endpoints
 @api_router.post("/comfyui/prompt")
 async def proxy_comfyui_prompt(payload: Dict[str, Any]):
@@ -383,6 +536,7 @@ async def proxy_comfyui_queue():
     resp = requests.get(f"{COMFYUI_BASE_URL}/queue")
     return api_response(resp.json())
 
+
 # --- Civitai API key management ---
 @api_router.post("/civitai/key")
 async def set_civitai_key(data: Dict[str, str]):
@@ -391,7 +545,9 @@ async def set_civitai_key(data: Dict[str, str]):
     if not api_key:
         raise HTTPException(status_code=400, detail="api_key required")
     encrypted = fernet.encrypt(api_key.encode()).decode()
-    await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
+    await db.civitai_key.update_one(
+        {"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True
+    )
     return api_response({"message": "API key saved"})
 
 
@@ -416,9 +572,9 @@ app.add_middleware(
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
+
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

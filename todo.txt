@@ -6,7 +6,7 @@
 
 [DONE] Standardize all backend responses to return a consistent structure including success status, payload, and full debug info or error traces if in development mode.
 
-Create a relational schema for workflows and user-defined actions that maps each frontend button (like upscale, zoom, pan) to a specific ComfyUI workflow.
+[DONE] Create a relational schema for workflows and user-defined actions that maps each frontend button (like upscale, zoom, pan) to a specific ComfyUI workflow.
 
 Connect the frontend Workflow Manager UI to this backend so that users can upload, edit, delete, and assign workflows to action slots, including dynamic parameter support per action.
 
