@@ -28,9 +28,9 @@ Build a responsive UI experience modeled after Midjourney, including keyboard sh
 
 Display generation progress using toast notifications or overlays that show job status transitions (queued → generating → done or error) with unique job IDs.
 
-Add hover-activated image toolbars to each image tile in the gallery or Create page that provide quick access to mapped actions like upscale or zoom.
+[DONE] Add hover-activated image toolbars to each image tile in the gallery or Create page that provide quick access to mapped actions like upscale or zoom.
 
-Support theme switching (dark/light) stored in local storage and toggled via the settings panel.
+[DONE] Support theme switching (dark/light) stored in local storage and toggled via the settings panel.
 
 Implement a full-featured image editing page that supports mask painting (erase/restore), brush size control, undo, and layered edits, and allows users to submit the edited image directly to workflows like inpaint or outpaint.
 
