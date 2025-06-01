@@ -38,6 +38,7 @@ from pydantic import BaseModel, Field, constr
 from typing import List, Dict, Any, Optional, Set
 import os
 import uuid
+import inspect
 from datetime import datetime
 import logging
 import asyncio
@@ -116,7 +117,8 @@ fernet = Fernet(fernet_secret)
 async def get_civitai_key() -> str | None:
     if os.environ.get("CIVITAI_API_KEY"):
         return os.environ["CIVITAI_API_KEY"]
-    record = await db.civitai_key.find_one({"_id": "global"})
+    result = db.civitai_key.find_one({"_id": "global"})
+    record = await result if inspect.iscoroutine(result) else result
     if record and "key" in record:
         try:
             return fernet.decrypt(record["key"].encode()).decode()
@@ -125,10 +127,6 @@ async def get_civitai_key() -> str | None:
     return None
 
 # Load Civitai API key from environment or DB at startup
-
-        return fernet.decrypt(record["key"].encode()).decode()
-    return None
-
 
 async def store_civitai_key(api_key: str) -> None:
     encrypted = fernet.encrypt(api_key.encode()).decode()
@@ -153,7 +151,6 @@ if civitai_file and os.path.isfile(civitai_file):
             os.environ["CIVITAI_API_KEY"] = fh.read().strip()
     except Exception:
         pass
-elif not os.environ.get("CIVITAI_API_KEY"):
 
 # CSRF protection setup
 
@@ -300,7 +297,7 @@ async def get_csrf_token():
 # Define Models
 class ParameterMapping(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    code: str
+    code: constr(min_length=2, pattern=r"^--\w+")
     node_id: str
     param_name: str
     value_template: str = "{value}"
@@ -310,24 +307,17 @@ class ParameterMapping(BaseModel):
 
 class WorkflowMapping(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
+    name: constr(min_length=1, max_length=100)
     description: str = ""
     data: Optional[Dict[str, Any]] = None
 
 class ActionMapping(BaseModel):
     """Map a UI action button to a workflow"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
+    button: constr(min_length=1, max_length=50)
+    name: constr(min_length=1, max_length=100)
     workflow_id: str
     description: str = ""
-    parameters: Optional[Dict[str, Any]] = None
-
-
-class ActionMapping(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    button: str
-    name: str
-    workflow_id: str
     parameters: Optional[Dict[str, Any]] = None
 
 
@@ -346,21 +336,16 @@ class ImageOutputRecord(BaseModel):
 
 
 class GenerateRequest(BaseModel):
-    prompt: constr(min_length=1, max_length=500)
-
-    """Request body for starting a generation job."""
-    prompt: str = Field(..., min_length=1, max_length=2000)
-
     """Input model for the /generate endpoint."""
-    prompt: str = Field(..., min_length=1, max_length=1000)
-
-    prompt: str = Field(..., max_length=2000)
+    prompt: constr(min_length=1, max_length=2000)
     workflow_id: Optional[str] = None
 
 
 # Parameter Manager Routes
 @api_router.post("/parameters", response_model=ParameterMapping)
-async def create_parameter_mapping(mapping: ParameterMapping):
+async def create_parameter_mapping(
+    mapping: ParameterMapping, _csrf: None = Depends(csrf_protect)
+):
     mapping_dict = mapping.dict()
     # Store the ID in the _id field for MongoDB
     mapping_dict["_id"] = mapping_dict["id"]
@@ -379,7 +364,9 @@ async def get_parameter_mappings():
 
 
 @api_router.put("/parameters/{param_id}", response_model=ParameterMapping)
-async def update_parameter_mapping(param_id: str, mapping: ParameterMapping):
+async def update_parameter_mapping(
+    param_id: str, mapping: ParameterMapping, _csrf: None = Depends(csrf_protect)
+):
     mapping_dict = mapping.dict()
     # Remove id for the update
     if "id" in mapping_dict:
@@ -390,14 +377,16 @@ async def update_parameter_mapping(param_id: str, mapping: ParameterMapping):
 
 
 @api_router.delete("/parameters/{param_id}")
-async def delete_parameter_mapping(param_id: str):
+async def delete_parameter_mapping(param_id: str, _csrf: None = Depends(csrf_protect)):
     await db.parameter_mappings.delete_one({"_id": param_id})
     return api_response({"message": "Parameter mapping deleted"})
 
 
 # Workflow Manager Routes
 @api_router.post("/workflows", response_model=WorkflowMapping)
-async def create_workflow_mapping(mapping: WorkflowMapping):
+async def create_workflow_mapping(
+    mapping: WorkflowMapping, _csrf: None = Depends(csrf_protect)
+):
     mapping_dict = mapping.dict()
     # Store the ID in the _id field for MongoDB
     mapping_dict["_id"] = mapping_dict["id"]
@@ -416,7 +405,11 @@ async def get_workflow_mappings():
 
 
 @api_router.put("/workflows/{workflow_id}", response_model=WorkflowMapping)
-async def update_workflow_mapping(workflow_id: str, mapping: WorkflowMapping):
+async def update_workflow_mapping(
+    workflow_id: str,
+    mapping: WorkflowMapping,
+    _csrf: None = Depends(csrf_protect),
+):
     mapping_dict = mapping.dict()
     # Remove id for the update
     if "id" in mapping_dict:
@@ -427,13 +420,17 @@ async def update_workflow_mapping(workflow_id: str, mapping: WorkflowMapping):
 
 
 @api_router.delete("/workflows/{workflow_id}")
-async def delete_workflow_mapping(workflow_id: str):
+async def delete_workflow_mapping(
+    workflow_id: str, _csrf: None = Depends(csrf_protect)
+):
     await db.workflow_mappings.delete_one({"_id": workflow_id})
     return api_response({"message": "Workflow mapping deleted"})
 
 # Action Manager Routes
 @api_router.post("/actions", response_model=ActionMapping)
-async def create_action_mapping(mapping: ActionMapping):
+async def create_action_mapping(
+    mapping: ActionMapping, _csrf: None = Depends(csrf_protect)
+):
     mapping_dict = mapping.dict()
     mapping_dict["_id"] = mapping_dict["id"]
     if hasattr(db, "action_mappings"):
@@ -455,7 +452,9 @@ async def get_action_mappings():
     return api_response(mappings)
 
 @api_router.put("/actions/{action_id}", response_model=ActionMapping)
-async def update_action_mapping(action_id: str, mapping: ActionMapping):
+async def update_action_mapping(
+    action_id: str, mapping: ActionMapping, _csrf: None = Depends(csrf_protect)
+):
     mapping_dict = mapping.dict()
     if "id" in mapping_dict:
         del mapping_dict["id"]
@@ -467,7 +466,7 @@ async def update_action_mapping(action_id: str, mapping: ActionMapping):
     return api_response({**mapping_dict, "id": action_id})
 
 @api_router.delete("/actions/{action_id}")
-async def delete_action_mapping(action_id: str):
+async def delete_action_mapping(action_id: str, _csrf: None = Depends(csrf_protect)):
     await db.action_mappings.delete_one({"_id": action_id})
 
     if hasattr(db, "action_mappings"):
@@ -479,7 +478,9 @@ async def delete_action_mapping(action_id: str):
 # Relational Workflow Endpoints using SQLAlchemy
 @api_router.post("/relational/workflows", response_model=WorkflowMapping)
 async def create_rel_workflow(
-    mapping: WorkflowMapping, dbs: Session = Depends(get_sql_db)
+    mapping: WorkflowMapping,
+    dbs: Session = Depends(get_sql_db),
+    _csrf: None = Depends(csrf_protect),
 ):
     wf = Workflow(
         id=mapping.id,
@@ -494,7 +495,9 @@ async def create_rel_workflow(
 
 @api_router.post("/relational/workflows/upload", response_model=WorkflowMapping)
 async def upload_rel_workflow(
-    payload: Dict[str, Any], dbs: Session = Depends(get_sql_db)
+    payload: Dict[str, Any],
+    dbs: Session = Depends(get_sql_db),
+    _csrf: None = Depends(csrf_protect),
 ):
     """Upload a workflow JSON payload and store it."""
     data = payload.get("data")
@@ -530,7 +533,10 @@ async def get_rel_workflows(dbs: Session = Depends(get_sql_db)):
 
 @api_router.put("/relational/workflows/{wf_id}", response_model=WorkflowMapping)
 async def update_rel_workflow(
-    wf_id: str, mapping: WorkflowMapping, dbs: Session = Depends(get_sql_db)
+    wf_id: str,
+    mapping: WorkflowMapping,
+    dbs: Session = Depends(get_sql_db),
+    _csrf: None = Depends(csrf_protect),
 ):
     wf = dbs.query(Workflow).filter(Workflow.id == wf_id).first()
     if not wf:
@@ -543,7 +549,9 @@ async def update_rel_workflow(
 
 
 @api_router.delete("/relational/workflows/{wf_id}")
-async def delete_rel_workflow(wf_id: str, dbs: Session = Depends(get_sql_db)):
+async def delete_rel_workflow(
+    wf_id: str, dbs: Session = Depends(get_sql_db), _csrf: None = Depends(csrf_protect)
+):
     wf = dbs.query(Workflow).filter(Workflow.id == wf_id).first()
     if not wf:
         raise HTTPException(status_code=404, detail="Workflow not found")
@@ -554,7 +562,11 @@ async def delete_rel_workflow(wf_id: str, dbs: Session = Depends(get_sql_db)):
 
 # ----- Action endpoints -----
 @api_router.post("/relational/actions", response_model=ActionMapping)
-async def create_action(mapping: ActionMapping, dbs: Session = Depends(get_sql_db)):
+async def create_action(
+    mapping: ActionMapping,
+    dbs: Session = Depends(get_sql_db),
+    _csrf: None = Depends(csrf_protect),
+):
     action = Action(
         id=mapping.id,
         button=mapping.button,
@@ -585,7 +597,10 @@ async def get_actions(dbs: Session = Depends(get_sql_db)):
 
 @api_router.put("/relational/actions/{action_id}", response_model=ActionMapping)
 async def update_action(
-    action_id: str, mapping: ActionMapping, dbs: Session = Depends(get_sql_db)
+    action_id: str,
+    mapping: ActionMapping,
+    dbs: Session = Depends(get_sql_db),
+    _csrf: None = Depends(csrf_protect),
 ):
     action = dbs.query(Action).filter(Action.id == action_id).first()
     if not action:
@@ -599,7 +614,11 @@ async def update_action(
 
 
 @api_router.delete("/relational/actions/{action_id}")
-async def delete_action(action_id: str, dbs: Session = Depends(get_sql_db)):
+async def delete_action(
+    action_id: str,
+    dbs: Session = Depends(get_sql_db),
+    _csrf: None = Depends(csrf_protect),
+):
     action = dbs.query(Action).filter(Action.id == action_id).first()
     if not action:
         raise HTTPException(status_code=404, detail="Action not found")
@@ -800,9 +819,6 @@ async def get_sample_workflows():
 # Simple workflow execution and progress streaming
 @api_router.post("/generate")
 async def start_generation(
-    data: GenerateRequest,
-
-
     payload: GenerateRequest,
     background_tasks: BackgroundTasks = None,
     dbs: Session = Depends(get_sql_db),
@@ -812,22 +828,9 @@ async def start_generation(
     prompt = payload.prompt.strip()
     workflow_id = payload.workflow_id
     job_id = str(uuid.uuid4())
-    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": data.prompt}
+    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": prompt}
 
-    # store prompt record
-    prm = Prompt(id=job_id, text=data.prompt, workflow_id=data.workflow_id)
-
-
-    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": payload.prompt}
-
-    # store prompt record
     prm = Prompt(id=job_id, text=prompt, workflow_id=workflow_id)
-
-    prm = Prompt(
-        id=job_id, text=data.prompt, workflow_id=data.workflow_id
-
-        id=job_id, text=payload.prompt, workflow_id=payload.workflow_id
-    )
     dbs.add(prm)
     dbs.commit()
 
@@ -955,31 +958,15 @@ class CivitaiKey(BaseModel):
 
 @api_router.post("/civitai/key")
 async def set_civitai_key(
-    data: Dict[str, str], _csrf: None = Depends(csrf_protect)
+    key: CivitaiKey, _csrf: None = Depends(csrf_protect)
 ):
-
-async def set_civitai_key(key: CivitaiKey):
-    """Store the Civitai API key encrypted in the database"""
-    api_key = data.get("api_key")
-    if not api_key:
-        raise HTTPException(status_code=400, detail="api_key required")
-    await store_civitai_key(api_key)
-
-    api_key = key.api_key
-    encrypted = fernet.encrypt(api_key.encode()).decode()
-    await db.civitai_key.update_one(
-        {"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True
-    )
-    os.environ["CIVITAI_API_KEY"] = api_key
-
-    await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
-    os.environ["CIVITAI_API_KEY"] = api_key
-
+    """Store the Civitai API key encrypted in the database."""
+    await store_civitai_key(key.api_key)
     key_path = os.environ.get("CIVITAI_KEY_FILE")
     if key_path:
         try:
             with open(key_path, "wb") as fh:
-                fh.write(encrypted.encode())
+                fh.write(fernet.encrypt(key.api_key.encode()))
         except Exception:
             logging.exception("Failed to write Civitai key file")
     return api_response({"message": "API key saved"})
