@@ -1,3 +1,4 @@
+import shlex
 import re
 from typing import Tuple, Dict, List, Any
 
@@ -9,15 +10,37 @@ SHORTCODE_PATTERN = re.compile(
 def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
     """Parse a prompt string extracting shortcode parameters.
 
-    Returns a tuple of (clean_prompt, params_dict).
+    This implementation supports tokens in the form ``--key value`` or
+    ``--key=value``. Values may be quoted with single or double quotes.
+
+    Returns a tuple ``(clean_prompt, params_dict)``.
     """
+
     params: Dict[str, str] = {}
-    for match in SHORTCODE_PATTERN.finditer(prompt):
-        key = match.group("key")
-        value = match.group("value")
-        if value is None:
-            value = "true"
+    remaining_tokens: List[str] = []
+
+    tokens = shlex.split(prompt)
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token.startswith("--"):
+            key_val = token[2:]
+            if "=" in key_val:
+                key, value = key_val.split("=", 1)
+            else:
+                key = key_val
+                value = None
+                if i + 1 < len(tokens) and not tokens[i + 1].startswith("--"):
+                    i += 1
+                    value = tokens[i]
+            if value is None:
+                value = "true"
+            params[key] = value
         else:
+            remaining_tokens.append(token)
+        i += 1
+
+    clean_prompt = " ".join(remaining_tokens)
             value = value.strip()
             if (value.startswith('"') and value.endswith('"')) or (
                 value.startswith("'") and value.endswith("'")

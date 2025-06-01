@@ -18,6 +18,13 @@ class PromptParserTests(unittest.TestCase):
         self.assertEqual(patches[0]["path"], "/nodes/1/properties/aspect_ratio")
         self.assertEqual(patches[0]["value"], "16:9")
 
+    def test_parse_quoted_and_equals(self):
+        prompt = 'A cat --ar=1:1 --style "comic book"'
+        clean, tokens = parse_prompt(prompt)
+        self.assertEqual(clean, "A cat")
+        self.assertEqual(tokens["ar"], "1:1")
+        self.assertEqual(tokens["style"], "comic book")
+        
     def test_parse_prompt_with_quotes(self):
         prompt = 'A cat --style "very cool" --ar 1:1'
         clean, tokens = parse_prompt(prompt)

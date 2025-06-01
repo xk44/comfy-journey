@@ -12,7 +12,7 @@ Connect the frontend Workflow Manager UI to this backend so that users can uploa
 
 [DONE] Translate parsed shortcode tokens into structured JSON patch operations that directly modify the relevant parts of a workflow before submission.
 
-Support parameter definitions in the UI (such as code, node, parameter, value template) so users can define new shortcodes and dynamically map them to backend nodes.
+[DONE] Support parameter definitions in the UI (such as code, node, parameter, value template) so users can define new shortcodes and dynamically map them to backend nodes.
 
 Provide visual autocomplete in the prompt bar for available parameters as users type, showing hints for each shortcode.
 
