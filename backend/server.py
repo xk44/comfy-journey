@@ -21,7 +21,7 @@ from .models import SessionLocal, init_db, Workflow, Action
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set
 import os
 import uuid
 from datetime import datetime
@@ -115,7 +115,23 @@ init_db()
 
 # Simple in-memory job store for demo progress streaming
 jobs: Dict[str, Dict[str, Any]] = {}
+ws_clients: Dict[str, Set[WebSocket]] = {}
 action_store: Dict[str, Dict[str, Any]] = {}
+
+
+async def _notify_websockets(job_id: str) -> None:
+    """Send job progress updates to all connected WebSocket clients."""
+    job = jobs.get(job_id)
+    if not job:
+        return
+    queue_size = sum(1 for j in jobs.values() if j["status"] != "done")
+    data = {"job": job, "queue_size": queue_size}
+    connections = ws_clients.get(job_id, set()).copy()
+    for ws in connections:
+        try:
+            await ws.send_json(data)
+        except Exception:
+            ws_clients[job_id].discard(ws)
 
 
 def get_sql_db():
@@ -292,7 +308,7 @@ async def delete_action_mapping(action_id: str):
         await db.action_mappings.delete_one({"_id": action_id})
     else:
         action_store.pop(action_id, None)
-    return api_response({"message": "Action deleted"})
+    return api_response({"message": "Action mapping deleted"})
 
 # Relational Workflow Endpoints using SQLAlchemy
 @api_router.post("/relational/workflows", response_model=WorkflowMapping)
@@ -423,7 +439,7 @@ async def delete_action(action_id: str, dbs: Session = Depends(get_sql_db)):
         raise HTTPException(status_code=404, detail="Action not found")
     dbs.delete(action)
     dbs.commit()
-    return api_response({"message": "Action deleted"})
+    return api_response({"message": "Action mapping deleted"})
 
 
 # Root path response
@@ -593,10 +609,13 @@ async def start_generation(prompt: str = Body(..., embed=True)):
 
     async def run_job(jid: str):
         jobs[jid]["status"] = "generating"
+        await _notify_websockets(jid)
         for i in range(1, 6):
             await asyncio.sleep(0.1)
             jobs[jid]["progress"] = i * 20
+            await _notify_websockets(jid)
         jobs[jid]["status"] = "done"
+        await _notify_websockets(jid)
 
     asyncio.create_task(run_job(job_id))
     return api_response({"job_id": job_id})
@@ -635,18 +654,22 @@ async def stream_progress(job_id: str):
 @api_router.websocket("/progress/ws/{job_id}")
 async def websocket_progress(websocket: WebSocket, job_id: str):
     await websocket.accept()
+    ws_clients.setdefault(job_id, set()).add(websocket)
     try:
         while True:
             job = jobs.get(job_id)
             if not job:
                 await websocket.send_json({"event": "end", "error": "job_not_found"})
                 break
-            await websocket.send_json(job)
+            queue_size = sum(1 for j in jobs.values() if j["status"] != "done")
+            await websocket.send_json({"job": job, "queue_size": queue_size})
             if job["status"] == "done":
                 break
             await asyncio.sleep(0.1)
     except WebSocketDisconnect:
         pass
+    finally:
+        ws_clients[job_id].discard(websocket)
 
 
 # ComfyUI proxy endpoints
