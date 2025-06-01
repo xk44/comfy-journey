@@ -12,6 +12,11 @@ from fastapi import (
 from fastapi.responses import StreamingResponse
 from .utils import api_response, DEBUG_MODE
 from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
+
+from .utils import api_response, DEBUG_MODE, log_backend_call
+from .external_integrations.civitai import civitai_get
+
+from .external_integrations.civitai import fetch_json as civitai_fetch
 from cryptography.fernet import Fernet
 import base64
 from sqlalchemy.orm import Session
@@ -290,7 +295,7 @@ async def delete_action_mapping(action_id: str):
         await db.action_mappings.delete_one({"_id": action_id})
     else:
         action_store.pop(action_id, None)
-    return api_response({"message": "Action deleted"})
+    return api_response({"message": "Action mapping deleted"})
 
 # Relational Workflow Endpoints using SQLAlchemy
 @api_router.post("/relational/workflows", response_model=WorkflowMapping)
@@ -421,7 +426,7 @@ async def delete_action(action_id: str, dbs: Session = Depends(get_sql_db)):
         raise HTTPException(status_code=404, detail="Action not found")
     dbs.delete(action)
     dbs.commit()
-    return api_response({"message": "Action deleted"})
+    return api_response({"message": "Action mapping deleted"})
 
 
 # Root path response
@@ -651,22 +656,31 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
 @api_router.post("/comfyui/prompt")
 async def proxy_comfyui_prompt(payload: Dict[str, Any]):
     """Proxy prompt submission to the ComfyUI backend"""
+    start = datetime.utcnow().timestamp()
     resp = requests.post(f"{COMFYUI_BASE_URL}/prompt", json=payload)
-    return api_response(resp.json())
+    data = resp.json()
+    log_backend_call("POST", f"{COMFYUI_BASE_URL}/prompt", payload, data, resp.status_code, start)
+    return api_response(data)
 
 
 @api_router.get("/comfyui/history")
 async def proxy_comfyui_history():
     """Proxy generation history from ComfyUI"""
+    start = datetime.utcnow().timestamp()
     resp = requests.get(f"{COMFYUI_BASE_URL}/history")
-    return api_response(resp.json())
+    data = resp.json()
+    log_backend_call("GET", f"{COMFYUI_BASE_URL}/history", None, data, resp.status_code, start)
+    return api_response(data)
 
 
 @api_router.get("/comfyui/queue")
 async def proxy_comfyui_queue():
     """Proxy queue state from ComfyUI"""
+    start = datetime.utcnow().timestamp()
     resp = requests.get(f"{COMFYUI_BASE_URL}/queue")
-    return api_response(resp.json())
+    data = resp.json()
+    log_backend_call("GET", f"{COMFYUI_BASE_URL}/queue", None, data, resp.status_code, start)
+    return api_response(data)
 
 
 # --- Civitai API key management ---
