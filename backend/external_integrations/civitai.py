@@ -4,7 +4,7 @@ import os
 import time
 import hashlib
 import requests
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
 
 # Civitai base URL
 CIVITAI_BASE_URL = os.environ.get("CIVITAI_BASE_URL", "https://civitai.com/api/v1")
@@ -68,8 +68,6 @@ simple and stores data in memory only.
 
 import asyncio
 import json
-import time
-from typing import Any, Dict, Optional, Tuple
 
 import httpx
 

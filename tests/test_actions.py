@@ -84,13 +84,13 @@ def test_action_crud():
         "workflow_id": workflow_id,
         "parameters": {"scale": 2},
     }
-    resp = client.post("/api/actions", json=action_data)
+    resp = client.post("/api/relational/actions", json=action_data)
     assert resp.status_code == 200
     payload = resp.json()["payload"]
     action_id = payload["id"]
     assert payload["button"] == "upscale"
 
-    resp = client.get("/api/actions")
+    resp = client.get("/api/relational/actions")
     assert resp.status_code == 200
     assert len(resp.json()["payload"]) == 1
 
@@ -101,10 +101,10 @@ def test_action_crud():
         "workflow_id": workflow_id,
         "parameters": {"amount": 1.5},
     }
-    resp = client.put(f"/api/actions/{action_id}", json=update)
+    resp = client.put(f"/api/relational/actions/{action_id}", json=update)
     assert resp.status_code == 200
     assert resp.json()["payload"]["button"] == "zoom"
 
-    resp = client.delete(f"/api/actions/{action_id}")
+    resp = client.delete(f"/api/relational/actions/{action_id}")
     assert resp.status_code == 200
     assert resp.json()["payload"]["message"] == "Action mapping deleted"
