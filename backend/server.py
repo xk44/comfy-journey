@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Body, Depends
 from fastapi.responses import JSONResponse
+from .utils import api_response
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
@@ -50,7 +51,7 @@ async def create_parameter_mapping(mapping: ParameterMapping):
     # Store the ID in the _id field for MongoDB
     mapping_dict["_id"] = mapping_dict["id"]
     await db.parameter_mappings.insert_one(mapping_dict)
-    return mapping_dict
+    return api_response(mapping_dict)
 
 @api_router.get("/parameters", response_model=List[ParameterMapping])
 async def get_parameter_mappings():
@@ -59,7 +60,7 @@ async def get_parameter_mappings():
         mapping["id"] = str(mapping.get("_id", mapping.get("id", "")))
         if "_id" in mapping:
             del mapping["_id"]
-    return mappings
+    return api_response(mappings)
 
 @api_router.put("/parameters/{param_id}", response_model=ParameterMapping)
 async def update_parameter_mapping(param_id: str, mapping: ParameterMapping):
@@ -71,12 +72,12 @@ async def update_parameter_mapping(param_id: str, mapping: ParameterMapping):
     await db.parameter_mappings.update_one(
         {"_id": param_id}, {"$set": mapping_dict}
     )
-    return {**mapping_dict, "id": param_id}
+    return api_response({**mapping_dict, "id": param_id})
 
 @api_router.delete("/parameters/{param_id}")
 async def delete_parameter_mapping(param_id: str):
     await db.parameter_mappings.delete_one({"_id": param_id})
-    return {"message": "Parameter mapping deleted"}
+    return api_response({"message": "Parameter mapping deleted"})
 
 # Workflow Manager Routes
 @api_router.post("/workflows", response_model=WorkflowMapping)
@@ -85,7 +86,7 @@ async def create_workflow_mapping(mapping: WorkflowMapping):
     # Store the ID in the _id field for MongoDB
     mapping_dict["_id"] = mapping_dict["id"]
     await db.workflow_mappings.insert_one(mapping_dict)
-    return mapping_dict
+    return api_response(mapping_dict)
 
 @api_router.get("/workflows", response_model=List[WorkflowMapping])
 async def get_workflow_mappings():
@@ -94,7 +95,7 @@ async def get_workflow_mappings():
         mapping["id"] = str(mapping.get("_id", mapping.get("id", "")))
         if "_id" in mapping:
             del mapping["_id"]
-    return mappings
+    return api_response(mappings)
 
 @api_router.put("/workflows/{workflow_id}", response_model=WorkflowMapping)
 async def update_workflow_mapping(workflow_id: str, mapping: WorkflowMapping):
@@ -106,17 +107,17 @@ async def update_workflow_mapping(workflow_id: str, mapping: WorkflowMapping):
     await db.workflow_mappings.update_one(
         {"_id": workflow_id}, {"$set": mapping_dict}
     )
-    return {**mapping_dict, "id": workflow_id}
+    return api_response({**mapping_dict, "id": workflow_id})
 
 @api_router.delete("/workflows/{workflow_id}")
 async def delete_workflow_mapping(workflow_id: str):
     await db.workflow_mappings.delete_one({"_id": workflow_id})
-    return {"message": "Workflow mapping deleted"}
+    return api_response({"message": "Workflow mapping deleted"})
 
 # Root path response
 @api_router.get("/")
 async def root():
-    return {"message": "ComfyUI Frontend API"}
+    return api_response({"message": "ComfyUI Frontend API"})
 
 # Add ComfyUI workflow endpoints that were missing
 @api_router.get("/comfyui/workflows")
@@ -185,13 +186,13 @@ async def get_comfyui_workflows():
             }
         }
     ]
-    return sample_workflows
+    return api_response(sample_workflows)
 
 @api_router.get("/comfyui/status")
 async def get_comfyui_status():
     """Get the status of the ComfyUI server"""
     # This is a sample response for the endpoint
-    return {
+    return api_response({
         "status": "running",
         "version": "1.0.0",
         "gpu_info": {
@@ -199,12 +200,12 @@ async def get_comfyui_status():
             "memory_total": 8192,
             "memory_used": 2048
         }
-    }
+    })
 
 # Add sample workflow endpoint
 @api_router.get("/sample-workflows")
 async def get_sample_workflows():
-    return [
+    return api_response([
         {
             "id": "workflow1",
             "name": "Basic Text to Image",
@@ -265,7 +266,7 @@ async def get_sample_workflows():
                 }
             }
         }
-    ]
+    ])
 
 # Include the router in the main app
 app.include_router(api_router)

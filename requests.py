@@ -4,6 +4,10 @@ from urllib.parse import urlparse
 _parameter_store = {}
 _workflow_store = {}
 
+
+def _wrap(payload=None, *, status=True):
+    return {"success": status, "payload": payload}
+
 SAMPLE_WORKFLOWS = [
     {
         "id": "workflow1",
@@ -89,13 +93,13 @@ def _strip_base(url: str) -> str:
 def get(url, *args, **kwargs):
     path = _strip_base(url)
     if path == '/':
-        return Response(200, {"message": "ComfyUI Frontend API"})
+        return Response(200, _wrap({"message": "ComfyUI Frontend API"}))
     if path == '/parameters':
-        return Response(200, list(_parameter_store.values()))
+        return Response(200, _wrap(list(_parameter_store.values())))
     if path == '/workflows':
-        return Response(200, list(_workflow_store.values()))
+        return Response(200, _wrap(list(_workflow_store.values())))
     if path == '/sample-workflows':
-        return Response(200, SAMPLE_WORKFLOWS)
+        return Response(200, _wrap(SAMPLE_WORKFLOWS))
     return Response(404, {"error": "not found"})
 
 
@@ -105,12 +109,12 @@ def post(url, json=None, *args, **kwargs):
         data = json.copy() if json else {}
         data['id'] = str(uuid.uuid4())
         _parameter_store[data['id']] = data
-        return Response(200, data)
+        return Response(200, _wrap(data))
     if path == '/workflows':
         data = json.copy() if json else {}
         data['id'] = str(uuid.uuid4())
         _workflow_store[data['id']] = data
-        return Response(200, data)
+        return Response(200, _wrap(data))
     return Response(404, {"error": "not found"})
 
 
@@ -120,13 +124,13 @@ def put(url, json=None, *args, **kwargs):
         _id = path.split('/')[-1]
         if _id in _parameter_store:
             _parameter_store[_id].update(json or {})
-            return Response(200, _parameter_store[_id])
+            return Response(200, _wrap(_parameter_store[_id]))
         return Response(404, {"error": "not found"})
     if path.startswith('/workflows/'):
         _id = path.split('/')[-1]
         if _id in _workflow_store:
             _workflow_store[_id].update(json or {})
-            return Response(200, _workflow_store[_id])
+            return Response(200, _wrap(_workflow_store[_id]))
         return Response(404, {"error": "not found"})
     return Response(404, {"error": "not found"})
 
@@ -136,11 +140,11 @@ def delete(url, *args, **kwargs):
     if path.startswith('/parameters/'):
         _id = path.split('/')[-1]
         if _parameter_store.pop(_id, None) is not None:
-            return Response(200, {"message": "Parameter mapping deleted"})
+            return Response(200, _wrap({"message": "Parameter mapping deleted"}))
         return Response(404, {"error": "not found"})
     if path.startswith('/workflows/'):
         _id = path.split('/')[-1]
         if _workflow_store.pop(_id, None) is not None:
-            return Response(200, {"message": "Workflow mapping deleted"})
+            return Response(200, _wrap({"message": "Workflow mapping deleted"}))
         return Response(404, {"error": "not found"})
     return Response(404, {"error": "not found"})
