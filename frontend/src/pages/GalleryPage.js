@@ -92,6 +92,14 @@ const GalleryPage = () => {
       showToast('Image deleted successfully', 'success');
     }
   };
+
+  const handleUpscale = (image) => {
+    showToast(`Upscale triggered for ${image.id}`, 'info');
+  };
+
+  const handleZoomOut = (image) => {
+    showToast(`Zoom out triggered for ${image.id}`, 'info');
+  };
   
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
@@ -151,12 +159,16 @@ const GalleryPage = () => {
           {filteredImages.map(image => (
             <div key={image.id} className="gallery-card">
               <div className="gallery-image-container" onClick={() => handleImageClick(image)}>
-                <img 
-                  src={image.url} 
-                  alt={image.prompt} 
+                <img
+                  src={image.url}
+                  alt={image.prompt}
                   className="gallery-image"
                   loading="lazy"
                 />
+                <div className="gallery-overlay">
+                  <button onClick={(e) => { e.stopPropagation(); handleUpscale(image); }}>Upscale</button>
+                  <button onClick={(e) => { e.stopPropagation(); handleZoomOut(image); }}>Zoom Out</button>
+                </div>
               </div>
               
               <div className="gallery-image-info">

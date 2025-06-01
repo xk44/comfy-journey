@@ -39,12 +39,22 @@ const SettingsPage = () => {
     const savedPreferences = localStorage.getItem('comfyui_preferences');
     if (savedPreferences) {
       try {
-        setPreferences(JSON.parse(savedPreferences));
+        const prefs = JSON.parse(savedPreferences);
+        setPreferences(prefs);
       } catch (error) {
         console.error('Error parsing saved preferences:', error);
       }
     }
   }, [currentUser]);
+
+  // Apply theme when preference changes
+  useEffect(() => {
+    if (preferences.darkMode) {
+      document.body.classList.remove('light-theme');
+    } else {
+      document.body.classList.add('light-theme');
+    }
+  }, [preferences.darkMode]);
   
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
@@ -56,10 +66,18 @@ const SettingsPage = () => {
   
   const handlePreferenceChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setPreferences({
+    const updated = {
       ...preferences,
       [name]: type === 'checkbox' ? checked : value
-    });
+    };
+    setPreferences(updated);
+    if (name === 'darkMode') {
+      if (type === 'checkbox' ? checked : value) {
+        document.body.classList.remove('light-theme');
+      } else {
+        document.body.classList.add('light-theme');
+      }
+    }
   };
   
   const handleSaveProfile = async (e) => {
