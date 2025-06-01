@@ -20,7 +20,14 @@ from .external_integrations.civitai import fetch_json as civitai_fetch
 from cryptography.fernet import Fernet
 import base64
 from sqlalchemy.orm import Session
-from .models import SessionLocal, init_db, Workflow, Action
+from .models import (
+    SessionLocal,
+    init_db,
+    Workflow,
+    Action,
+    Prompt,
+    ImageOutput,
+)
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
@@ -194,6 +201,20 @@ class ActionMapping(BaseModel):
     name: str
     workflow_id: str
     parameters: Optional[Dict[str, Any]] = None
+
+
+class PromptRecord(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    text: str
+    workflow_id: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class ImageOutputRecord(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    prompt_id: str
+    file_path: str
+    created_at: Optional[str] = None
 
 
 # Parameter Manager Routes
@@ -445,6 +466,36 @@ async def delete_action(action_id: str, dbs: Session = Depends(get_sql_db)):
     dbs.commit()
     return api_response({"message": "Action mapping deleted"})
 
+# ----- Prompt and output endpoints -----
+@api_router.get("/relational/prompts", response_model=List[PromptRecord])
+async def get_prompts(dbs: Session = Depends(get_sql_db)):
+    prompts = dbs.query(Prompt).all()
+    payload = [
+        {
+            "id": p.id,
+            "text": p.text,
+            "workflow_id": p.workflow_id,
+            "created_at": p.created_at,
+        }
+        for p in prompts
+    ]
+    return api_response(payload)
+
+
+@api_router.get("/relational/outputs", response_model=List[ImageOutputRecord])
+async def get_outputs(dbs: Session = Depends(get_sql_db)):
+    outputs = dbs.query(ImageOutput).all()
+    payload = [
+        {
+            "id": o.id,
+            "prompt_id": o.prompt_id,
+            "file_path": o.file_path,
+            "created_at": o.created_at,
+        }
+        for o in outputs
+    ]
+    return api_response(payload)
+
 
 # Root path response
 @api_router.get("/")
@@ -606,10 +657,22 @@ async def get_sample_workflows():
 
 # Simple workflow execution and progress streaming
 @api_router.post("/generate")
-async def start_generation(prompt: str = Body(..., embed=True)):
+async def start_generation(
+    prompt: str = Body(..., embed=True),
+    workflow_id: Optional[str] = None,
+    background_tasks: BackgroundTasks = None,
+    dbs: Session = Depends(get_sql_db),
+):
     """Create a fake generation job and simulate progress."""
     job_id = str(uuid.uuid4())
     jobs[job_id] = {"status": "queued", "progress": 0, "prompt": prompt}
+
+    # store prompt record
+    prm = Prompt(
+        id=job_id, text=prompt, workflow_id=workflow_id
+    )
+    dbs.add(prm)
+    dbs.commit()
 
     async def run_job(jid: str):
         jobs[jid]["status"] = "generating"
@@ -617,8 +680,19 @@ async def start_generation(prompt: str = Body(..., embed=True)):
             await asyncio.sleep(0.1)
             jobs[jid]["progress"] = i * 20
         jobs[jid]["status"] = "done"
+        # store output record when done
+        with SessionLocal() as dbi:
+            out = ImageOutput(
+                prompt_id=jid,
+                file_path=f"{jid}.png",
+            )
+            dbi.add(out)
+            dbi.commit()
 
-    asyncio.create_task(run_job(job_id))
+    if background_tasks is not None:
+        background_tasks.add_task(run_job, job_id)
+    else:
+        asyncio.create_task(run_job(job_id))
     return api_response({"job_id": job_id})
 
 
