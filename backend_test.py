@@ -144,7 +144,37 @@ class ComfyUIBackendTester(unittest.TestCase):
         delete_data = delete_resp.get("payload", {})
         self.assertEqual(delete_data["message"], "Workflow mapping deleted")
 
-    def test_04_sample_workflows(self):
+    def test_04_action_mappings_crud(self):
+        """Test action mappings CRUD operations"""
+        create_data = {
+            "name": "upscale",
+            "workflow_id": "wf1",
+            "description": "test action"
+        }
+        resp = requests.post(f"{self.base_url}/actions", json=create_data)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()["payload"]
+        action_id = data["id"]
+
+        get_resp = requests.get(f"{self.base_url}/actions")
+        self.assertEqual(get_resp.status_code, 200)
+        self.assertIsInstance(get_resp.json()["payload"], list)
+
+        update_data = {
+            "id": action_id,
+            "name": "upscale2",
+            "workflow_id": "wf1",
+            "description": "updated"
+        }
+        up_resp = requests.put(f"{self.base_url}/actions/{action_id}", json=update_data)
+        self.assertEqual(up_resp.status_code, 200)
+        self.assertEqual(up_resp.json()["payload"]["name"], "upscale2")
+
+        del_resp = requests.delete(f"{self.base_url}/actions/{action_id}")
+        self.assertEqual(del_resp.status_code, 200)
+        self.assertTrue(del_resp.json()["success"])
+
+    def test_05_sample_workflows(self):
         """Test the sample workflows endpoint"""
         response = requests.get(f"{self.base_url}/sample-workflows")
         self.assertEqual(response.status_code, 200)
@@ -162,7 +192,7 @@ class ComfyUIBackendTester(unittest.TestCase):
         self.assertIn("data", sample_workflow)
         self.assertIn("nodes", sample_workflow["data"])
 
-    def test_05_proxy_prompt(self):
+    def test_06_proxy_prompt(self):
         """Test ComfyUI proxy prompt endpoint"""
         data = {"prompt": "test"}
         response = requests.post(f"{self.base_url}/comfyui/prompt", json=data)

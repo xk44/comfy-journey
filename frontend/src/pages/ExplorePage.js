@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
+import civitaiService from '../services/civitaiService';
 
 const ExplorePage = () => {
   const [activeTab, setActiveTab] = useState('Images');
@@ -10,6 +11,8 @@ const ExplorePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const navigate = useNavigate();
   
@@ -19,119 +22,48 @@ const ExplorePage = () => {
   const categories = ['Random', 'Hot', 'Top Month', 'Likes'];
   const [activeCategory, setActiveCategory] = useState('Top Month');
 
-  // Fetch images and models on component mount
+  // Fetch images and models when the page changes
   useEffect(() => {
     const fetchExploreData = async () => {
       try {
-        setLoading(true);
-        
-        // Mock data for demo
-        // In a real implementation, you would fetch from your API
-        const mockImages = [
-          {
-            id: '1',
-            url: 'https://source.unsplash.com/random/400x400/?duck,toy',
-            prompt: 'Realistic toy rubber duck',
-            username: 'ai_artist',
-            likes: 245
-          },
-          {
-            id: '2',
-            url: 'https://source.unsplash.com/random/400x400/?girl,cafe',
-            prompt: 'Girl in a Tokyo cafe, film photography',
-            username: 'photo_ai',
-            likes: 532
-          },
-          {
-            id: '3',
-            url: 'https://source.unsplash.com/random/400x400/?gucci,fashion',
-            prompt: 'Gucci fashion catalog cover in pastoral setting',
-            username: 'fashion_gen',
-            likes: 892
-          },
-          {
-            id: '4',
-            url: 'https://source.unsplash.com/random/400x400/?silhouette,red',
-            prompt: 'Mysterious silhouette against red background, noir style',
-            username: 'noir_ai',
-            likes: 367
-          },
-          {
-            id: '5',
-            url: 'https://source.unsplash.com/random/400x400/?lips,glossy',
-            prompt: 'Close-up of glossy red lips with water droplets',
-            username: 'beauty_ai',
-            likes: 453
-          },
-          {
-            id: '6',
-            url: 'https://source.unsplash.com/random/400x400/?pocket,watch,desert',
-            prompt: 'Antique pocket watch hanging in desert landscape',
-            username: 'time_traveler',
-            likes: 289
-          },
-          {
-            id: '7',
-            url: 'https://source.unsplash.com/random/400x400/?asian,girl,coffee',
-            prompt: 'Asian girl with coffee cup in cozy room',
-            username: 'cozy_ai',
-            likes: 412
-          },
-          {
-            id: '8',
-            url: 'https://source.unsplash.com/random/400x400/?saturn,purple',
-            prompt: 'Saturn with vibrant purple rings, space art',
-            username: 'space_artist',
-            likes: 678
-          },
-          {
-            id: '9',
-            url: 'https://source.unsplash.com/random/400x400/?grass,macro',
-            prompt: 'Macro photography of grass blades with dew',
-            username: 'nature_ai',
-            likes: 321
-          }
-        ];
-        
-        const mockModels = [
-          {
-            id: '1',
-            name: 'Realistic Portrait v2',
-            description: 'Specialized in photorealistic human portraits',
-            creator: 'portrait_master',
-            downloads: 45678,
-            rating: 4.9
-          },
-          {
-            id: '2',
-            name: 'Anime Diffusion XL',
-            description: 'High quality anime-style generations',
-            creator: 'anime_lover',
-            downloads: 32456,
-            rating: 4.8
-          },
-          {
-            id: '3',
-            name: 'Landscape Perfection',
-            description: 'Beautiful landscape generations with realistic lighting',
-            creator: 'nature_ai',
-            downloads: 28932,
-            rating: 4.7
-          }
-        ];
-        
-        setImages(mockImages);
-        setModels(mockModels);
+        if (page === 1) {
+          setLoading(true);
+        } else {
+          setLoadingMore(true);
+        }
+
+        const imagesRes = await civitaiService.getImages({ limit: 20, page });
+        const modelsRes = await civitaiService.getModels({ limit: 20, page });
+
+        const newImages = imagesRes.items || imagesRes.data || imagesRes;
+        const newModels = modelsRes.items || modelsRes.data || modelsRes;
+
+        setImages(prev => (page === 1 ? newImages : [...prev, ...newImages]));
+        setModels(prev => (page === 1 ? newModels : [...prev, ...newModels]));
         setLoading(false);
+        setLoadingMore(false);
       } catch (error) {
         console.error('Error fetching explore data:', error);
         setLoading(false);
+        setLoadingMore(false);
         showToast('Failed to load explore data. Please try again.', 'error');
       }
     };
-    
+
     fetchExploreData();
-  }, []);
+  }, [page]);
+
+  // Observer to trigger loading more images when scrolling near the bottom
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !loadingMore) {
+        setPage(p => p + 1);
+      }
+    });
+    const el = document.getElementById('load-more-trigger');
+    if (el) observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadingMore]);
   
   const handleSearch = (e) => {
     setSearchQuery(e.target.value);
@@ -262,6 +194,7 @@ const ExplorePage = () => {
                   </div>
                 </div>
               ))}
+              <div id="load-more-trigger" style={{ height: 1 }}></div>
             </div>
           )}
         </>

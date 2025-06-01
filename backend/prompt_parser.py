@@ -3,7 +3,9 @@ import shlex
 from typing import Tuple, Dict, List, Any
 
 # Pattern used for stripping shortcode tokens from a prompt string
-SHORTCODE_PATTERN = re.compile(r"--(?P<key>\w+)(?:[=\s]+(?P<value>(\"[^\"]*\"|'[^']*'|[^-]+)))?")
+SHORTCODE_PATTERN = re.compile(
+    r"--(?P<key>\w+)(?:[=\s]+(?P<value>(\"[^\"]*\"|'[^']*'|[^-]+)))?"
+)
 
 
 def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
@@ -38,8 +40,9 @@ def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
             if value is None:
                 value = "true"
             value = value.strip()
-            if (value.startswith('"') and value.endswith('"')) or (
-                value.startswith("'") and value.endswith("'")
+            if (
+                (value.startswith('"') and value.endswith('"'))
+                or (value.startswith("'") and value.endswith("'"))
             ):
                 value = value[1:-1]
             params[key] = value
@@ -50,10 +53,15 @@ def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
     clean_prompt = " ".join(remaining)
     clean_prompt = SHORTCODE_PATTERN.sub("", clean_prompt).strip()
 
+
+    clean_prompt = " ".join(remaining).strip()
+    clean_prompt = SHORTCODE_PATTERN.sub("", clean_prompt).strip()
     return clean_prompt, params
 
 
-def tokens_to_patch(tokens: Dict[str, str], mappings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def tokens_to_patch(
+    tokens: Dict[str, str], mappings: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
     """Translate parsed tokens into JSON patch operations.
 
     Each mapping defines a ``code`` like ``--ar`` and the target node/parameter in

@@ -6,7 +6,7 @@
 
 [DONE] Standardize all backend responses to return a consistent structure including success status, payload, and full debug info or error traces if in development mode.
 
-Create a relational schema for workflows and user-defined actions that maps each frontend button (like upscale, zoom, pan) to a specific ComfyUI workflow.
+[DONE] Create a relational schema for workflows and user-defined actions that maps each frontend button (like upscale, zoom, pan) to a specific ComfyUI workflow.
 
 Connect the frontend Workflow Manager UI to this backend so that users can upload, edit, delete, and assign workflows to action slots, including dynamic parameter support per action.
 
@@ -18,9 +18,10 @@ Connect the frontend Workflow Manager UI to this backend so that users can uploa
 
 [DONE] Provide visual autocomplete in the prompt bar for available parameters as users type, showing hints for each shortcode.
 
-[PARTIAL] Integrate with Civitai by allowing users to input and store their Civitai API key securely in the settings panel, encrypted and never exposed to the client or logs.
 
-Use the Civitai API to fetch and display images, prompts, and models in the Explore page, with lazy loading and infinite scrolling for browsing high volumes of results.
+[DONE] Integrate with Civitai by allowing users to input and store their Civitai API key securely in the settings panel, encrypted and never exposed to the client or logs.
+
+[DONE] Use the Civitai API to fetch and display images, prompts, and models in the Explore page, with lazy loading and infinite scrolling for browsing high volumes of results.
 
 [DONE] Connect Explore-page images to the prompt system by enabling one-click "generate from this prompt" which pushes the selected prompt directly into the generation input bar.
 

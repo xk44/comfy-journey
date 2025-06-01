@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
+import civitaiService from '../services/civitaiService';
 
 const SettingsPage = () => {
   const { currentUser, updateProfile, logout } = useAuth();
@@ -21,6 +22,8 @@ const SettingsPage = () => {
     defaultAspectRatio: '1:1',
     defaultQuality: 'standard'
   });
+
+  const [civitaiKey, setCivitaiKey] = useState('');
   
   const [activeTab, setActiveTab] = useState('profile');
   
@@ -107,6 +110,18 @@ const SettingsPage = () => {
     } catch (error) {
       console.error('Error saving preferences:', error);
       showToast('Failed to save preferences. Please try again.', 'error');
+    }
+  };
+
+  const handleSaveCivitaiKey = async (e) => {
+    e.preventDefault();
+    try {
+      await civitaiService.setApiKey(civitaiKey);
+      setCivitaiKey('');
+      showToast('Civitai API key saved', 'success');
+    } catch (error) {
+      console.error('Error saving Civitai key:', error);
+      showToast('Failed to save key. Please try again.', 'error');
     }
   };
   
@@ -340,11 +355,13 @@ const SettingsPage = () => {
                 </div>
                 
                 <div className="api-key-value">
-                  <input 
-                    type="text" 
-                    placeholder="Enter your CivitAI API key" 
+                  <input
+                    type="text"
+                    placeholder="Enter your CivitAI API key"
+                    value={civitaiKey}
+                    onChange={(e) => setCivitaiKey(e.target.value)}
                   />
-                  <button className="save-button">Save</button>
+                  <button className="save-button" onClick={handleSaveCivitaiKey}>Save</button>
                 </div>
               </div>
             </div>

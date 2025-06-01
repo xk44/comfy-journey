@@ -3,6 +3,7 @@ from urllib.parse import urlparse
 
 _parameter_store = {}
 _workflow_store = {}
+_action_store = {}
 _history_store = []
 _queue_store = []
 
@@ -100,6 +101,8 @@ def get(url, *args, **kwargs):
         return Response(200, _wrap(list(_parameter_store.values())))
     if path == '/workflows':
         return Response(200, _wrap(list(_workflow_store.values())))
+    if path == '/actions':
+        return Response(200, _wrap(list(_action_store.values())))
     if path == '/sample-workflows':
         return Response(200, _wrap(SAMPLE_WORKFLOWS))
     if path == '/comfyui/history':
@@ -120,6 +123,11 @@ def post(url, json=None, *args, **kwargs):
         data = json.copy() if json else {}
         data['id'] = str(uuid.uuid4())
         _workflow_store[data['id']] = data
+        return Response(200, _wrap(data))
+    if path == '/actions':
+        data = json.copy() if json else {}
+        data['id'] = str(uuid.uuid4())
+        _action_store[data['id']] = data
         return Response(200, _wrap(data))
     if path == '/comfyui/prompt':
         data = json.copy() if json else {}
@@ -144,6 +152,12 @@ def put(url, json=None, *args, **kwargs):
             _workflow_store[_id].update(json or {})
             return Response(200, _wrap(_workflow_store[_id]))
         return Response(404, {"error": "not found"})
+    if path.startswith('/actions/'):
+        _id = path.split('/')[-1]
+        if _id in _action_store:
+            _action_store[_id].update(json or {})
+            return Response(200, _wrap(_action_store[_id]))
+        return Response(404, {"error": "not found"})
     return Response(404, {"error": "not found"})
 
 
@@ -158,5 +172,10 @@ def delete(url, *args, **kwargs):
         _id = path.split('/')[-1]
         if _workflow_store.pop(_id, None) is not None:
             return Response(200, _wrap({"message": "Workflow mapping deleted"}))
+        return Response(404, {"error": "not found"})
+    if path.startswith('/actions/'):
+        _id = path.split('/')[-1]
+        if _action_store.pop(_id, None) is not None:
+            return Response(200, _wrap({"message": "Action mapping deleted"}))
         return Response(404, {"error": "not found"})
     return Response(404, {"error": "not found"})
