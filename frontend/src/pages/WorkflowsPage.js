@@ -72,7 +72,9 @@ const WorkflowsPage = () => {
             id: a.id,
             name: a.button || a.name,
             assigned: wf ? wf.name : 'None',
-            parameters: a.parameters || {}
+            workflow_id: a.workflow_id,
+            parameters: a.parameters || {},
+            paramInput: JSON.stringify(a.parameters || {})
           };
         });
         setActionMappings(mapping);
@@ -182,6 +184,59 @@ const WorkflowsPage = () => {
     } catch (error) {
       console.error('Error saving action mapping:', error);
       showToast('Failed to map action. Please try again.', 'error');
+    }
+  };
+
+  const handleParamChange = (actionName, value) => {
+    setActionMappings({
+      ...actionMappings,
+      [actionName]: {
+        ...actionMappings[actionName],
+        paramInput: value
+      }
+    });
+  };
+
+  const handleSaveParameters = async (actionName) => {
+    const mapping = actionMappings[actionName];
+    let params = {};
+    if (mapping.paramInput && mapping.paramInput.trim()) {
+      try {
+        params = JSON.parse(mapping.paramInput);
+      } catch (err) {
+        showToast('Invalid parameters JSON', 'error');
+        return;
+      }
+    }
+
+    const payload = {
+      button: actionName,
+      name: actionName,
+      workflow_id: mapping.workflow_id,
+      parameters: params
+    };
+
+    try {
+      let resp;
+      if (mapping.id) {
+        resp = await actionService.updateAction(mapping.id, payload);
+      } else {
+        resp = await actionService.createAction(payload);
+      }
+      const data = resp && resp.payload ? resp.payload : resp;
+      setActionMappings({
+        ...actionMappings,
+        [actionName]: {
+          ...mapping,
+          ...data,
+          parameters: params,
+          paramInput: JSON.stringify(params)
+        }
+      });
+      showToast('Action parameters saved', 'success');
+    } catch (error) {
+      console.error('Error saving parameters:', error);
+      showToast('Failed to save parameters', 'error');
     }
   };
   
@@ -325,9 +380,9 @@ const WorkflowsPage = () => {
                 <h3 className="action-name">{action.name}</h3>
                 <p className="action-assignment">Assigned: {action.assigned}</p>
               </div>
-              
+
               <div className="action-selector">
-                <select 
+                <select
                   className="workflow-select"
                   onChange={(e) => handleUpdateActionMapping(actionName, e.target.value)}
                   value={workflows.find(w => w.name === action.assigned)?.id || ''}
@@ -339,6 +394,16 @@ const WorkflowsPage = () => {
                     </option>
                   ))}
                 </select>
+                <textarea
+                  className="param-input"
+                  placeholder="{ }"
+                  value={action.paramInput || ''}
+                  onChange={(e) => handleParamChange(actionName, e.target.value)}
+                  rows={2}
+                />
+                <button className="save-param-button" onClick={() => handleSaveParameters(actionName)}>
+                  Save
+                </button>
               </div>
             </div>
           ))}

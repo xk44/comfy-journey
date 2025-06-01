@@ -944,6 +944,22 @@ button:disabled {
   border-color: var(--accent-color);
 }
 
+.param-input {
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.save-param-button {
+  margin-top: 6px;
+}
+
 .add-action-button {
   width: 100%;
   margin-top: 15px;
