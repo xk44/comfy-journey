@@ -36,12 +36,10 @@ Implement a full-featured image editing page that supports mask painting (erase/
 
 Store all user-submitted prompts, workflows, image outputs, parameters, and actions in a persistent SQL database with relational consistency and auditing.
 
-Log every ComfyUI backend call with full JSON request, response, status, timestamps, and runtime so performance can be debugged and replayed.
+[DONE] Log every ComfyUI backend call with full JSON request, response, status, timestamps, and runtime so performance can be debugged and replayed.
 
-Provide background cleanup and data maintenance tools for thumbnails, temp files, disk quotas, and expired image outputs to keep storage usage optimal.
+Provide background cleanup and data maintenance tools for thumbnails, temp files, disk quotas, and expired image outputs to keep storage usage optimal, but keep generation jobs and images persistent in create page.
 
 Apply security best practices including CSRF protection, JWT session rotation, and input validation on all form-based or prompt data.
 
 Encrypt and store Civitai keys securely using a secrets manager or environment variable system, never exposing them in logs or the client.
-
-Implement basic content moderation hooks and rate-limiting per user to prevent abuse or malicious generation activity.
