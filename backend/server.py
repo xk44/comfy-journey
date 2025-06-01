@@ -11,13 +11,23 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from .utils import api_response, DEBUG_MODE
+from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
+
+from .utils import api_response, DEBUG_MODE, log_backend_call
 from .external_integrations.civitai import civitai_get
 
 from .external_integrations.civitai import fetch_json as civitai_fetch
 from cryptography.fernet import Fernet
 import base64
 from sqlalchemy.orm import Session
-from .models import SessionLocal, init_db, Workflow, Action
+from .models import (
+    SessionLocal,
+    init_db,
+    Workflow,
+    Action,
+    Prompt,
+    ImageOutput,
+)
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
@@ -109,6 +119,11 @@ if not os.environ.get("CIVITAI_API_KEY"):
     except Exception:
         pass
 
+# Cleanup configuration
+CLEAN_PATHS = os.environ.get("CJ_CLEAN_PATHS", "").split(":")
+CLEAN_DAYS = int(os.environ.get("CJ_CLEAN_DAYS", "7"))
+CLEAN_INTERVAL = int(os.environ.get("CJ_CLEAN_INTERVAL", "0"))
+
 # Create the main app
 app = FastAPI()
 init_db()
@@ -132,6 +147,17 @@ async def _notify_websockets(job_id: str) -> None:
             await ws.send_json(data)
         except Exception:
             ws_clients[job_id].discard(ws)
+
+async def _cleanup_worker() -> None:
+    """Periodically clean temporary files based on environment settings."""
+    if CLEAN_INTERVAL <= 0:
+        return
+    while True:
+        try:
+            cleanup_task(CLEAN_PATHS, CLEAN_DAYS)
+        except Exception as exc:  # pragma: no cover - log but continue
+            logging.exception("Cleanup failed: %s", exc)
+        await asyncio.sleep(CLEAN_INTERVAL)
 
 
 def get_sql_db():
@@ -190,6 +216,20 @@ class ActionMapping(BaseModel):
     name: str
     workflow_id: str
     parameters: Optional[Dict[str, Any]] = None
+
+
+class PromptRecord(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    text: str
+    workflow_id: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class ImageOutputRecord(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    prompt_id: str
+    file_path: str
+    created_at: Optional[str] = None
 
 
 # Parameter Manager Routes
@@ -442,6 +482,37 @@ async def delete_action(action_id: str, dbs: Session = Depends(get_sql_db)):
     return api_response({"message": "Action mapping deleted"})
 
 
+# ----- Prompt and output endpoints -----
+@api_router.get("/relational/prompts", response_model=List[PromptRecord])
+async def get_prompts(dbs: Session = Depends(get_sql_db)):
+    prompts = dbs.query(Prompt).all()
+    payload = [
+        {
+            "id": p.id,
+            "text": p.text,
+            "workflow_id": p.workflow_id,
+            "created_at": p.created_at,
+        }
+        for p in prompts
+    ]
+    return api_response(payload)
+
+
+@api_router.get("/relational/outputs", response_model=List[ImageOutputRecord])
+async def get_outputs(dbs: Session = Depends(get_sql_db)):
+    outputs = dbs.query(ImageOutput).all()
+    payload = [
+        {
+            "id": o.id,
+            "prompt_id": o.prompt_id,
+            "file_path": o.file_path,
+            "created_at": o.created_at,
+        }
+        for o in outputs
+    ]
+    return api_response(payload)
+
+
 # Root path response
 @api_router.get("/")
 async def root():
@@ -602,10 +673,22 @@ async def get_sample_workflows():
 
 # Simple workflow execution and progress streaming
 @api_router.post("/generate")
-async def start_generation(prompt: str = Body(..., embed=True)):
+async def start_generation(
+    prompt: str = Body(..., embed=True),
+    workflow_id: Optional[str] = None,
+    background_tasks: BackgroundTasks = None,
+    dbs: Session = Depends(get_sql_db),
+):
     """Create a fake generation job and simulate progress."""
     job_id = str(uuid.uuid4())
     jobs[job_id] = {"status": "queued", "progress": 0, "prompt": prompt}
+
+    # store prompt record
+    prm = Prompt(
+        id=job_id, text=prompt, workflow_id=workflow_id
+    )
+    dbs.add(prm)
+    dbs.commit()
 
     async def run_job(jid: str):
         jobs[jid]["status"] = "generating"
@@ -617,7 +700,19 @@ async def start_generation(prompt: str = Body(..., embed=True)):
         jobs[jid]["status"] = "done"
         await _notify_websockets(jid)
 
-    asyncio.create_task(run_job(job_id))
+        # store output record when done
+        with SessionLocal() as dbi:
+            out = ImageOutput(
+                prompt_id=jid,
+                file_path=f"{jid}.png",
+            )
+            dbi.add(out)
+            dbi.commit()
+
+    if background_tasks is not None:
+        background_tasks.add_task(run_job, job_id)
+    else:
+        asyncio.create_task(run_job(job_id))
     return api_response({"job_id": job_id})
 
 
@@ -676,22 +771,31 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
 @api_router.post("/comfyui/prompt")
 async def proxy_comfyui_prompt(payload: Dict[str, Any]):
     """Proxy prompt submission to the ComfyUI backend"""
+    start = datetime.utcnow().timestamp()
     resp = requests.post(f"{COMFYUI_BASE_URL}/prompt", json=payload)
-    return api_response(resp.json())
+    data = resp.json()
+    log_backend_call("POST", f"{COMFYUI_BASE_URL}/prompt", payload, data, resp.status_code, start)
+    return api_response(data)
 
 
 @api_router.get("/comfyui/history")
 async def proxy_comfyui_history():
     """Proxy generation history from ComfyUI"""
+    start = datetime.utcnow().timestamp()
     resp = requests.get(f"{COMFYUI_BASE_URL}/history")
-    return api_response(resp.json())
+    data = resp.json()
+    log_backend_call("GET", f"{COMFYUI_BASE_URL}/history", None, data, resp.status_code, start)
+    return api_response(data)
 
 
 @api_router.get("/comfyui/queue")
 async def proxy_comfyui_queue():
     """Proxy queue state from ComfyUI"""
+    start = datetime.utcnow().timestamp()
     resp = requests.get(f"{COMFYUI_BASE_URL}/queue")
-    return api_response(resp.json())
+    data = resp.json()
+    log_backend_call("GET", f"{COMFYUI_BASE_URL}/queue", None, data, resp.status_code, start)
+    return api_response(data)
 
 
 # --- Civitai API key management ---
@@ -725,7 +829,7 @@ async def civitai_proxy(path: str, request: Request):
     """Proxy GET requests to the Civitai API with caching and throttling."""
     params = dict(request.query_params)
     try:
-        data = civitai_get(f"/{path}", params)
+        data = await civitai_get(f"/{path}", params)
     except requests.RequestException as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
@@ -758,10 +862,9 @@ async def civitai_models(limit: int = 20, page: int = 1, query: str | None = Non
 
 
 @api_router.post("/maintenance/cleanup")
-async def run_cleanup(background_tasks: BackgroundTasks, days: int = 7):
+async def run_cleanup(background_tasks: BackgroundTasks, days: int = CLEAN_DAYS):
     """Trigger background cleanup of temporary files."""
-    paths = os.environ.get("CJ_CLEAN_PATHS", "").split(":")
-    background_tasks.add_task(cleanup_task, paths, days)
+    background_tasks.add_task(cleanup_task, CLEAN_PATHS, days)
     return api_response({"message": "Cleanup started"})
 
 
@@ -781,6 +884,13 @@ app.add_middleware(
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
+
+
+@app.on_event("startup")
+async def startup_tasks() -> None:
+    """Launch background maintenance tasks."""
+    if CLEAN_INTERVAL > 0:
+        asyncio.create_task(_cleanup_worker())
 
 
 @app.on_event("shutdown")

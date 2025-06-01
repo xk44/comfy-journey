@@ -4,6 +4,7 @@ import os
 import uuid
 from sqlalchemy import create_engine, Column, String, Text, ForeignKey
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from datetime import datetime
 
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./comfy.db")
@@ -44,6 +45,35 @@ class Action(Base):
     parameters = Column(Text)
 
     workflow = relationship("Workflow", back_populates="actions")
+
+
+class Prompt(Base):
+    """Record of a submitted prompt"""
+
+    __tablename__ = "prompts"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    text = Column(Text, nullable=False)
+    workflow_id = Column(String, ForeignKey("workflows.id"), nullable=True)
+    created_at = Column(String, default=lambda: datetime.utcnow().isoformat())
+
+    workflow = relationship("Workflow")
+    outputs = relationship(
+        "ImageOutput", back_populates="prompt", cascade="all, delete-orphan"
+    )
+
+
+class ImageOutput(Base):
+    """Image generated from a prompt"""
+
+    __tablename__ = "image_outputs"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    prompt_id = Column(String, ForeignKey("prompts.id"), nullable=False)
+    file_path = Column(String, nullable=False)
+    created_at = Column(String, default=lambda: datetime.utcnow().isoformat())
+
+    prompt = relationship("Prompt", back_populates="outputs")
 
 
 def init_db() -> None:

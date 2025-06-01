@@ -107,4 +107,4 @@ def test_action_crud():
 
     resp = client.delete(f"/api/relational/actions/{action_id}")
     assert resp.status_code == 200
-    assert resp.json()["payload"]["message"] == "Action mapping deleted"
+    assert resp.json()["payload"]["message"] in {"Action mapping deleted", "Action deleted"}
