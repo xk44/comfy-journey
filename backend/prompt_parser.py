@@ -38,17 +38,15 @@ def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
             if value is None:
                 value = "true"
             value = value.strip()
-            if (value.startswith('"') and value.endswith('"')) or (
-                value.startswith("'") and value.endswith("'")
+            if (
+                (value.startswith('"') and value.endswith('"'))
+                or (value.startswith("'") and value.endswith("'"))
             ):
                 value = value[1:-1]
             params[key] = value
         else:
             remaining.append(token)
         i += 1
-
-    clean_prompt = " ".join(remaining_tokens)
-    clean_prompt = SHORTCODE_PATTERN.sub("", clean_prompt).strip()
 
     clean_prompt = " ".join(remaining).strip()
     return clean_prompt, params
