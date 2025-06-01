@@ -11,6 +11,7 @@ from datetime import datetime
 import logging
 import asyncio
 import json
+import requests
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -20,6 +21,9 @@ load_dotenv()
 mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 client = AsyncIOMotorClient(mongo_url)
 db = client.get_database("comfyui_frontend")
+
+# Base URL for the ComfyUI backend
+COMFYUI_BASE_URL = os.environ.get("COMFYUI_BASE_URL", "http://localhost:8188")
 
 # Create the main app
 app = FastAPI()
@@ -322,6 +326,27 @@ async def stream_progress(job_id: str):
             await asyncio.sleep(0.1)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+# ComfyUI proxy endpoints
+@api_router.post("/comfyui/prompt")
+async def proxy_comfyui_prompt(payload: Dict[str, Any]):
+    """Proxy prompt submission to the ComfyUI backend"""
+    resp = requests.post(f"{COMFYUI_BASE_URL}/prompt", json=payload)
+    return api_response(resp.json())
+
+
+@api_router.get("/comfyui/history")
+async def proxy_comfyui_history():
+    """Proxy generation history from ComfyUI"""
+    resp = requests.get(f"{COMFYUI_BASE_URL}/history")
+    return api_response(resp.json())
+
+
+@api_router.get("/comfyui/queue")
+async def proxy_comfyui_queue():
+    """Proxy queue state from ComfyUI"""
+    resp = requests.get(f"{COMFYUI_BASE_URL}/queue")
+    return api_response(resp.json())
 
 # Include the router in the main app
 app.include_router(api_router)
