@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorClient
+from .utils import api_response
 import os
 import uuid
 from dotenv import load_dotenv
@@ -139,12 +140,12 @@ async def register_user(user_create: UserCreate):
     
     await db.users.insert_one(user_in_db.dict())
     
-    return UserPublic(
+    return api_response(UserPublic(
         id=user_id,
         username=user_create.username,
         name=user_create.name,
         created_at=user_in_db.created_at
-    )
+    ))
 
 @auth_router.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -160,7 +161,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     
-    return {
+    return api_response({
         "access_token": access_token,
         "token_type": "bearer",
         "user": {
@@ -168,16 +169,16 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             "username": user.username,
             "name": user.name
         }
-    }
+    })
 
 @auth_router.get("/me", response_model=UserPublic)
 async def read_users_me(current_user: UserInDB = Depends(get_current_active_user)):
-    return UserPublic(
+    return api_response(UserPublic(
         id=current_user.id,
         username=current_user.username,
         name=current_user.name,
         created_at=current_user.created_at
-    )
+    ))
 
 @auth_router.put("/preferences")
 async def update_user_preferences(
@@ -189,7 +190,7 @@ async def update_user_preferences(
         {"id": current_user.id},
         {"$set": {"preferences": preferences}}
     )
-    return {"message": "Preferences updated successfully"}
+    return api_response({"message": "Preferences updated successfully"})
 
 @auth_router.get("/preferences")
 async def get_user_preferences(
@@ -197,4 +198,4 @@ async def get_user_preferences(
 ):
     """Get user preferences"""
     user = await db.users.find_one({"id": current_user.id})
-    return {"preferences": user.get("preferences", {})}
+    return api_response({"preferences": user.get("preferences", {})})

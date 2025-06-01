@@ -1,6 +1,15 @@
-import requests
-import unittest
+import importlib.util
+import pathlib
 import sys
+
+# Force use of local requests stub
+requests_spec = importlib.util.spec_from_file_location(
+    "requests", pathlib.Path(__file__).resolve().parent / "requests.py"
+)
+requests = importlib.util.module_from_spec(requests_spec)
+requests_spec.loader.exec_module(requests)
+sys.modules["requests"] = requests
+import unittest
 import json
 from datetime import datetime
 
@@ -21,8 +30,10 @@ class ComfyUIBackendTester(unittest.TestCase):
         response = requests.get(f"{self.base_url}/")
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertIn("message", data)
-        self.assertEqual(data["message"], "ComfyUI Frontend API")
+        self.assertTrue(data.get("success"))
+        payload = data.get("payload", {})
+        self.assertIn("message", payload)
+        self.assertEqual(payload["message"], "ComfyUI Frontend API")
 
     def test_02_parameter_mappings_crud(self):
         """Test parameter mappings CRUD operations"""
@@ -36,14 +47,18 @@ class ComfyUIBackendTester(unittest.TestCase):
         }
         create_response = requests.post(f"{self.base_url}/parameters", json=create_data)
         self.assertEqual(create_response.status_code, 200)
-        param_data = create_response.json()
+        resp_json = create_response.json()
+        self.assertTrue(resp_json.get("success"))
+        param_data = resp_json.get("payload", {})
         self.assertIn("id", param_data)
         param_id = param_data["id"]
 
         # Get all parameter mappings
         get_all_response = requests.get(f"{self.base_url}/parameters")
         self.assertEqual(get_all_response.status_code, 200)
-        mappings = get_all_response.json()
+        mappings_resp = get_all_response.json()
+        self.assertTrue(mappings_resp.get("success"))
+        mappings = mappings_resp.get("payload", [])
         self.assertIsInstance(mappings, list)
         
         # Update the parameter mapping
@@ -57,13 +72,17 @@ class ComfyUIBackendTester(unittest.TestCase):
         }
         update_response = requests.put(f"{self.base_url}/parameters/{param_id}", json=update_data)
         self.assertEqual(update_response.status_code, 200)
-        updated_param = update_response.json()
+        updated_resp = update_response.json()
+        self.assertTrue(updated_resp.get("success"))
+        updated_param = updated_resp.get("payload", {})
         self.assertEqual(updated_param["description"], "Updated test parameter")
         
         # Delete the parameter mapping
         delete_response = requests.delete(f"{self.base_url}/parameters/{param_id}")
         self.assertEqual(delete_response.status_code, 200)
-        delete_data = delete_response.json()
+        delete_resp = delete_response.json()
+        self.assertTrue(delete_resp.get("success"))
+        delete_data = delete_resp.get("payload", {})
         self.assertEqual(delete_data["message"], "Parameter mapping deleted")
 
     def test_03_workflow_mappings_crud(self):
@@ -89,14 +108,18 @@ class ComfyUIBackendTester(unittest.TestCase):
         }
         create_response = requests.post(f"{self.base_url}/workflows", json=create_data)
         self.assertEqual(create_response.status_code, 200)
-        workflow_data = create_response.json()
+        resp_json = create_response.json()
+        self.assertTrue(resp_json.get("success"))
+        workflow_data = resp_json.get("payload", {})
         self.assertIn("id", workflow_data)
         workflow_id = workflow_data["id"]
 
         # Get all workflow mappings
         get_all_response = requests.get(f"{self.base_url}/workflows")
         self.assertEqual(get_all_response.status_code, 200)
-        mappings = get_all_response.json()
+        mappings_resp = get_all_response.json()
+        self.assertTrue(mappings_resp.get("success"))
+        mappings = mappings_resp.get("payload", [])
         self.assertIsInstance(mappings, list)
         
         # Update the workflow mapping
@@ -108,20 +131,26 @@ class ComfyUIBackendTester(unittest.TestCase):
         }
         update_response = requests.put(f"{self.base_url}/workflows/{workflow_id}", json=update_data)
         self.assertEqual(update_response.status_code, 200)
-        updated_workflow = update_response.json()
+        updated_resp = update_response.json()
+        self.assertTrue(updated_resp.get("success"))
+        updated_workflow = updated_resp.get("payload", {})
         self.assertEqual(updated_workflow["description"], "Updated test workflow mapping")
         
         # Delete the workflow mapping
         delete_response = requests.delete(f"{self.base_url}/workflows/{workflow_id}")
         self.assertEqual(delete_response.status_code, 200)
-        delete_data = delete_response.json()
+        delete_resp = delete_response.json()
+        self.assertTrue(delete_resp.get("success"))
+        delete_data = delete_resp.get("payload", {})
         self.assertEqual(delete_data["message"], "Workflow mapping deleted")
 
     def test_04_sample_workflows(self):
         """Test the sample workflows endpoint"""
         response = requests.get(f"{self.base_url}/sample-workflows")
         self.assertEqual(response.status_code, 200)
-        workflows = response.json()
+        resp_json = response.json()
+        self.assertTrue(resp_json.get("success"))
+        workflows = resp_json.get("payload", [])
         self.assertIsInstance(workflows, list)
         self.assertGreater(len(workflows), 0)
         
