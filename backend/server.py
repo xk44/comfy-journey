@@ -99,6 +99,14 @@ class WorkflowMapping(BaseModel):
     description: str = ""
     data: Optional[Dict[str, Any]] = None
 
+class ActionMapping(BaseModel):
+    """Map a UI action button to a workflow"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    workflow_id: str
+    description: str = ""
+    parameters: Optional[Dict[str, Any]] = None
+
 
 class ActionMapping(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -181,6 +189,35 @@ async def delete_workflow_mapping(workflow_id: str):
     await db.workflow_mappings.delete_one({"_id": workflow_id})
     return api_response({"message": "Workflow mapping deleted"})
 
+# Action Manager Routes
+@api_router.post("/actions", response_model=ActionMapping)
+async def create_action_mapping(mapping: ActionMapping):
+    mapping_dict = mapping.dict()
+    mapping_dict["_id"] = mapping_dict["id"]
+    await db.action_mappings.insert_one(mapping_dict)
+    return api_response(mapping_dict)
+
+@api_router.get("/actions", response_model=List[ActionMapping])
+async def get_action_mappings():
+    mappings = await db.action_mappings.find().to_list(1000)
+    for m in mappings:
+        m["id"] = str(m.get("_id", m.get("id", "")))
+        if "_id" in m:
+            del m["_id"]
+    return api_response(mappings)
+
+@api_router.put("/actions/{action_id}", response_model=ActionMapping)
+async def update_action_mapping(action_id: str, mapping: ActionMapping):
+    mapping_dict = mapping.dict()
+    if "id" in mapping_dict:
+        del mapping_dict["id"]
+    await db.action_mappings.update_one({"_id": action_id}, {"$set": mapping_dict})
+    return api_response({**mapping_dict, "id": action_id})
+
+@api_router.delete("/actions/{action_id}")
+async def delete_action_mapping(action_id: str):
+    await db.action_mappings.delete_one({"_id": action_id})
+    return api_response({"message": "Action mapping deleted"})
 
 # Relational Workflow Endpoints using SQLAlchemy
 @api_router.post("/relational/workflows", response_model=WorkflowMapping)
