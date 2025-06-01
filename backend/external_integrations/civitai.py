@@ -59,6 +59,8 @@ def civitai_get(endpoint: str, params: Dict[str, Any] | None = None) -> Any:
 
     return data
 
+"""Helpers for interacting with the Civitai API with caching and rate limiting."""
+
 """Lightweight helpers for interacting with the Civitai API.
 
 This module adds a minimal caching layer and basic rate limiting so that

@@ -43,7 +43,7 @@ Store all user-submitted prompts, workflows, image outputs, parameters, and acti
 
 [DONE] Log every ComfyUI backend call with full JSON request, response, status, timestamps, and runtime so performance can be debugged and replayed.
 
-Provide background cleanup and data maintenance tools for thumbnails, temp files, disk quotas, and expired image outputs to keep storage usage optimal, but keep generation jobs and images persistent in create page.
+[PARTIAL] Provide background cleanup and data maintenance tools for thumbnails, temp files, disk quotas, and expired image outputs to keep storage usage optimal, but keep generation jobs and images persistent in create page.
 
 Apply security best practices including CSRF protection, JWT session rotation, and input validation on all form-based or prompt data.
 
