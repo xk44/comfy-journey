@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AdvancedEditor from '../components/AdvancedEditor';
 import Toast from '../components/Toast';
+import workflowService from '../services/workflowService';
 
 const AdvancedEditorPage = () => {
   const [image, setImage] = useState(null);
@@ -40,17 +41,18 @@ const AdvancedEditorPage = () => {
     showToast('Image saved successfully!', 'success');
   };
 
-  const handleGenerateInpaint = (newPrompt, maskUrl) => {
+  const handleGenerateInpaint = (newPrompt, maskUrl, imageUrl) => {
     setPrompt(newPrompt);
-    
-    if (maskUrl) {
-      // Inpainting logic would go here
-      showToast('Inpainting request sent!', 'info');
-      
-      // Mock response delay
-      setTimeout(() => {
-        showToast('Inpainting completed successfully!', 'success');
-      }, 2000);
+
+    if (maskUrl && imageUrl) {
+      workflowService
+        .executeWorkflow('workflow2', newPrompt, {}, imageUrl, maskUrl)
+        .then(() => {
+          showToast('Inpainting request sent!', 'info');
+        })
+        .catch(() => {
+          showToast('Failed to send inpaint request', 'error');
+        });
     }
   };
 

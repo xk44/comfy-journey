@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Toast from '../components/Toast';
+import workflowService from '../services/workflowService';
 
 const EditorPage = () => {
   const [image, setImage] = useState(null);
@@ -167,15 +168,19 @@ const EditorPage = () => {
       showToast('Please enter a prompt for inpainting', 'error');
       return;
     }
-    
+
     // Convert mask to data URL
     const maskDataUrl = maskRef.current.toDataURL('image/png');
-    
-    // Here you would send this to your backend for processing
-    console.log('Generating inpaint with prompt:', prompt);
-    console.log('Mask data:', maskDataUrl);
-    
-    showToast('Inpainting request sent!', 'success');
+    const imageDataUrl = canvasRef.current.toDataURL('image/png');
+
+    workflowService
+      .executeWorkflow('workflow2', prompt, {}, imageDataUrl, maskDataUrl)
+      .then(() => {
+        showToast('Inpainting request sent!', 'success');
+      })
+      .catch(() => {
+        showToast('Failed to send inpaint request', 'error');
+      });
   };
 
   const showToast = (message, type = 'info') => {
@@ -187,12 +192,15 @@ const EditorPage = () => {
   };
 
   const handleNavigateToAdvancedEditor = () => {
-    navigate('/advanced-editor', { 
-      state: { 
-        image, 
+    navigate('/advanced-editor', {
+      state: {
+        image: {
+          ...image,
+          url: canvasRef.current.toDataURL('image/png')
+        },
         prompt,
         mask: maskRef.current?.toDataURL('image/png')
-      } 
+      }
     });
   };
 

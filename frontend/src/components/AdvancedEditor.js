@@ -263,12 +263,13 @@ const AdvancedEditor = ({
   }; 
    
   // Handle inpainting 
-  const handleInpaint = () => { 
-    if (onGenerateInpaint) { 
-      const maskUrl = exportMask(); 
-      onGenerateInpaint(prompt, maskUrl); 
-    } 
-  }; 
+  const handleInpaint = () => {
+    if (onGenerateInpaint) {
+      const maskUrl = exportMask();
+      const imgUrl = stageRef.current.toDataURL();
+      onGenerateInpaint(prompt, maskUrl, imgUrl);
+    }
+  };
    
   // Handle saving 
   const handleSave = () => { 

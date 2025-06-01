@@ -126,10 +126,6 @@ async def get_civitai_key() -> str | None:
 
 # Load Civitai API key from environment or DB at startup
 
-        return fernet.decrypt(record["key"].encode()).decode()
-    return None
-
-
 async def store_civitai_key(api_key: str) -> None:
     encrypted = fernet.encrypt(api_key.encode()).decode()
     await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
@@ -154,7 +150,7 @@ if civitai_file and os.path.isfile(civitai_file):
     except Exception:
         pass
 elif not os.environ.get("CIVITAI_API_KEY"):
-
+    pass
 # CSRF protection setup
 
 CSRF_SECRET = os.environ.get("CJ_CSRF_SECRET")
@@ -346,16 +342,12 @@ class ImageOutputRecord(BaseModel):
 
 
 class GenerateRequest(BaseModel):
-    prompt: constr(min_length=1, max_length=500)
-
-    """Request body for starting a generation job."""
-    prompt: str = Field(..., min_length=1, max_length=2000)
-
     """Input model for the /generate endpoint."""
-    prompt: str = Field(..., min_length=1, max_length=1000)
 
-    prompt: str = Field(..., max_length=2000)
+    prompt: constr(min_length=1, max_length=2000)
     workflow_id: Optional[str] = None
+    init_image: Optional[str] = None
+    mask_image: Optional[str] = None
 
 
 # Parameter Manager Routes
@@ -800,9 +792,6 @@ async def get_sample_workflows():
 # Simple workflow execution and progress streaming
 @api_router.post("/generate")
 async def start_generation(
-    data: GenerateRequest,
-
-
     payload: GenerateRequest,
     background_tasks: BackgroundTasks = None,
     dbs: Session = Depends(get_sql_db),
@@ -812,22 +801,16 @@ async def start_generation(
     prompt = payload.prompt.strip()
     workflow_id = payload.workflow_id
     job_id = str(uuid.uuid4())
-    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": data.prompt}
 
-    # store prompt record
-    prm = Prompt(id=job_id, text=data.prompt, workflow_id=data.workflow_id)
+    jobs[job_id] = {
+        "status": "queued",
+        "progress": 0,
+        "prompt": prompt,
+        "init_image": payload.init_image,
+        "mask_image": payload.mask_image,
+    }
 
-
-    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": payload.prompt}
-
-    # store prompt record
     prm = Prompt(id=job_id, text=prompt, workflow_id=workflow_id)
-
-    prm = Prompt(
-        id=job_id, text=data.prompt, workflow_id=data.workflow_id
-
-        id=job_id, text=payload.prompt, workflow_id=payload.workflow_id
-    )
     dbs.add(prm)
     dbs.commit()
 
@@ -955,24 +938,16 @@ class CivitaiKey(BaseModel):
 
 @api_router.post("/civitai/key")
 async def set_civitai_key(
-    data: Dict[str, str], _csrf: None = Depends(csrf_protect)
+    key: CivitaiKey, _csrf: None = Depends(csrf_protect)
 ):
-
-async def set_civitai_key(key: CivitaiKey):
     """Store the Civitai API key encrypted in the database"""
-    api_key = data.get("api_key")
-    if not api_key:
-        raise HTTPException(status_code=400, detail="api_key required")
+    api_key = key.api_key
     await store_civitai_key(api_key)
 
-    api_key = key.api_key
     encrypted = fernet.encrypt(api_key.encode()).decode()
     await db.civitai_key.update_one(
         {"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True
     )
-    os.environ["CIVITAI_API_KEY"] = api_key
-
-    await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
     os.environ["CIVITAI_API_KEY"] = api_key
 
     key_path = os.environ.get("CIVITAI_KEY_FILE")
