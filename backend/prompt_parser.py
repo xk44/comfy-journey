@@ -40,8 +40,9 @@ def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
             if value is None:
                 value = "true"
             value = value.strip()
-            if (value.startswith('"') and value.endswith('"')) or (
-                value.startswith("'") and value.endswith("'")
+            if (
+                (value.startswith('"') and value.endswith('"'))
+                or (value.startswith("'") and value.endswith("'"))
             ):
                 value = value[1:-1]
             params[key] = value

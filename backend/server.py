@@ -10,6 +10,7 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from .utils import api_response, DEBUG_MODE
+from .external_integrations.civitai import fetch_json as civitai_fetch
 from cryptography.fernet import Fernet
 import base64
 from sqlalchemy.orm import Session
@@ -556,6 +557,34 @@ async def has_civitai_key():
     """Check if a Civitai API key has been stored"""
     record = await db.civitai_key.find_one({"_id": "global"})
     return api_response({"key_set": bool(record)})
+
+
+@api_router.get("/civitai/images")
+async def civitai_images(limit: int = 20, page: int = 1, query: str | None = None):
+    """Fetch images from Civitai with basic caching and rate limiting."""
+    record = await db.civitai_key.find_one({"_id": "global"})
+    api_key = None
+    if record:
+        api_key = fernet.decrypt(record["key"].encode()).decode()
+    params = {"limit": limit, "page": page}
+    if query:
+        params["query"] = query
+    data = await civitai_fetch("/images", params=params, api_key=api_key)
+    return api_response(data)
+
+
+@api_router.get("/civitai/models")
+async def civitai_models(limit: int = 20, page: int = 1, query: str | None = None):
+    """Fetch models from Civitai with basic caching and rate limiting."""
+    record = await db.civitai_key.find_one({"_id": "global"})
+    api_key = None
+    if record:
+        api_key = fernet.decrypt(record["key"].encode()).decode()
+    params = {"limit": limit, "page": page}
+    if query:
+        params["query"] = query
+    data = await civitai_fetch("/models", params=params, api_key=api_key)
+    return api_response(data)
 
 
 # Include the router in the main app
