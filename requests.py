@@ -3,6 +3,8 @@ from urllib.parse import urlparse
 
 _parameter_store = {}
 _workflow_store = {}
+_history_store = []
+_queue_store = []
 
 
 def _wrap(payload=None, *, status=True):
@@ -100,6 +102,10 @@ def get(url, *args, **kwargs):
         return Response(200, _wrap(list(_workflow_store.values())))
     if path == '/sample-workflows':
         return Response(200, _wrap(SAMPLE_WORKFLOWS))
+    if path == '/comfyui/history':
+        return Response(200, _wrap(_history_store))
+    if path == '/comfyui/queue':
+        return Response(200, _wrap(_queue_store))
     return Response(404, {"error": "not found"})
 
 
@@ -115,6 +121,12 @@ def post(url, json=None, *args, **kwargs):
         data['id'] = str(uuid.uuid4())
         _workflow_store[data['id']] = data
         return Response(200, _wrap(data))
+    if path == '/comfyui/prompt':
+        data = json.copy() if json else {}
+        job = {'job_id': str(uuid.uuid4()), 'request': data}
+        _queue_store.append(job)
+        _history_store.append(job)
+        return Response(200, _wrap(job))
     return Response(404, {"error": "not found"})
 
 

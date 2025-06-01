@@ -162,6 +162,25 @@ class ComfyUIBackendTester(unittest.TestCase):
         self.assertIn("data", sample_workflow)
         self.assertIn("nodes", sample_workflow["data"])
 
+    def test_05_proxy_prompt(self):
+        """Test ComfyUI proxy prompt endpoint"""
+        data = {"prompt": "test"}
+        response = requests.post(f"{self.base_url}/comfyui/prompt", json=data)
+        self.assertEqual(response.status_code, 200)
+        resp_json = response.json()
+        self.assertTrue(resp_json.get("success"))
+        payload = resp_json.get("payload", {})
+        self.assertIn("job_id", payload)
+
+        # verify history and queue endpoints return lists
+        hist = requests.get(f"{self.base_url}/comfyui/history")
+        self.assertEqual(hist.status_code, 200)
+        self.assertIsInstance(hist.json().get("payload"), list)
+
+        queue = requests.get(f"{self.base_url}/comfyui/queue")
+        self.assertEqual(queue.status_code, 200)
+        self.assertIsInstance(queue.json().get("payload"), list)
+
 def run_tests():
     suite = unittest.TestLoader().loadTestsFromTestCase(ComfyUIBackendTester)
     result = unittest.TextTestRunner(verbosity=2).run(suite)
