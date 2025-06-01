@@ -10,6 +10,9 @@ from fastapi import (
     BackgroundTasks,
 )
 from fastapi.responses import StreamingResponse
+from .utils import api_response, DEBUG_MODE
+from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
+
 from .utils import api_response, DEBUG_MODE, log_backend_call
 from .external_integrations.civitai import civitai_get
 
@@ -711,7 +714,7 @@ async def civitai_proxy(path: str, request: Request):
     """Proxy GET requests to the Civitai API with caching and throttling."""
     params = dict(request.query_params)
     try:
-        data = civitai_get(f"/{path}", params)
+        data = await civitai_get(f"/{path}", params)
     except requests.RequestException as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
