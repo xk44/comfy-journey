@@ -107,8 +107,15 @@ if not fernet_secret:
     fernet_secret = base64.urlsafe_b64encode(key_bytes).decode()
 fernet = Fernet(fernet_secret)
 
-# Load Civitai API key from environment or DB
-if not os.environ.get("CIVITAI_API_KEY"):
+# Load Civitai API key from environment, secrets file, or DB
+civitai_file = os.environ.get("CIVITAI_KEY_FILE")
+if civitai_file and os.path.isfile(civitai_file):
+    try:
+        with open(civitai_file, "r", encoding="utf-8") as fh:
+            os.environ["CIVITAI_API_KEY"] = fh.read().strip()
+    except Exception:
+        pass
+elif not os.environ.get("CIVITAI_API_KEY"):
     try:
         loop = asyncio.get_event_loop()
         record = loop.run_until_complete(db.civitai_key.find_one({"_id": "global"}))
@@ -124,9 +131,23 @@ CLEAN_PATHS = os.environ.get("CJ_CLEAN_PATHS", "").split(":")
 CLEAN_DAYS = int(os.environ.get("CJ_CLEAN_DAYS", "7"))
 CLEAN_INTERVAL = int(os.environ.get("CJ_CLEAN_INTERVAL", "0"))
 
+# CSRF configuration
+CSRF_TOKEN = os.environ.get("CSRF_TOKEN", "")
+CSRF_DISABLED = os.environ.get("CJ_CSRF_DISABLED", "true").lower() == "true"
+
 # Create the main app
 app = FastAPI()
 init_db()
+
+# Simple CSRF protection middleware
+@app.middleware("http")
+async def csrf_middleware(request: Request, call_next):
+    if CSRF_DISABLED or request.method in ("GET", "OPTIONS", "HEAD"):
+        return await call_next(request)
+    token = request.headers.get("X-CSRF-Token")
+    if not token or token != CSRF_TOKEN:
+        return api_response(success=False, error="invalid_csrf_token")
+    return await call_next(request)
 
 # Simple in-memory job store for demo progress streaming
 jobs: Dict[str, Dict[str, Any]] = {}
@@ -230,6 +251,12 @@ class ImageOutputRecord(BaseModel):
     prompt_id: str
     file_path: str
     created_at: Optional[str] = None
+
+
+class GenerateRequest(BaseModel):
+    """Input model for the /generate endpoint."""
+    prompt: str = Field(..., min_length=1, max_length=1000)
+    workflow_id: Optional[str] = None
 
 
 # Parameter Manager Routes
@@ -674,19 +701,18 @@ async def get_sample_workflows():
 # Simple workflow execution and progress streaming
 @api_router.post("/generate")
 async def start_generation(
-    prompt: str = Body(..., embed=True),
-    workflow_id: Optional[str] = None,
+    payload: GenerateRequest,
     background_tasks: BackgroundTasks = None,
     dbs: Session = Depends(get_sql_db),
 ):
     """Create a fake generation job and simulate progress."""
+    prompt = payload.prompt.strip()
+    workflow_id = payload.workflow_id
     job_id = str(uuid.uuid4())
     jobs[job_id] = {"status": "queued", "progress": 0, "prompt": prompt}
 
     # store prompt record
-    prm = Prompt(
-        id=job_id, text=prompt, workflow_id=workflow_id
-    )
+    prm = Prompt(id=job_id, text=prompt, workflow_id=workflow_id)
     dbs.add(prm)
     dbs.commit()
 
@@ -799,12 +825,14 @@ async def proxy_comfyui_queue():
 
 
 # --- Civitai API key management ---
+class CivitaiKey(BaseModel):
+    api_key: str = Field(..., min_length=1)
+
+
 @api_router.post("/civitai/key")
-async def set_civitai_key(data: Dict[str, str]):
+async def set_civitai_key(key: CivitaiKey):
     """Store the Civitai API key encrypted in the database"""
-    api_key = data.get("api_key")
-    if not api_key:
-        raise HTTPException(status_code=400, detail="api_key required")
+    api_key = key.api_key
     encrypted = fernet.encrypt(api_key.encode()).decode()
     await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
     os.environ["CIVITAI_API_KEY"] = api_key
