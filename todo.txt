@@ -8,7 +8,7 @@
 
 [DONE] Create a relational schema for workflows and user-defined actions that maps each frontend button (like upscale, zoom, pan) to a specific ComfyUI workflow.
 
-Connect the frontend Workflow Manager UI to this backend so that users can upload, edit, delete, and assign workflows to action slots, including dynamic parameter support per action.
+[DONE] Connect the frontend Workflow Manager UI to this backend so that users can upload, edit, delete, and assign workflows to action slots, including dynamic parameter support per action.
 
 [DONE] Develop a prompt-parsing engine that recognizes shortcodes like "--ar 16:9" or "--style vivid", parses them reliably, and maps them to specific node parameter updates in one or more workflows.
 
