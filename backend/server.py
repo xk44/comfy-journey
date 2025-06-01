@@ -7,6 +7,7 @@ from fastapi import (
     Request,
     WebSocket,
     WebSocketDisconnect,
+    BackgroundTasks,
 )
 from fastapi.responses import StreamingResponse
 from .utils import api_response, DEBUG_MODE
@@ -28,6 +29,7 @@ import logging
 import asyncio
 import json
 import requests
+from scripts.cleanup import cleanup as cleanup_task
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -38,6 +40,49 @@ load_dotenv()
 mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 client = AsyncIOMotorClient(mongo_url)
 db = client.get_database("comfyui_frontend")
+
+# In-memory collection fallback for tests or when MongoDB is unavailable
+class _MemoryCursor:
+    def __init__(self, data):
+        self._data = list(data)
+
+    async def to_list(self, *_args, **_kwargs):
+        return list(self._data)
+
+
+class _MemoryCollection:
+    def __init__(self):
+        self.store = {}
+
+    async def insert_one(self, doc):
+        self.store[doc["_id"]] = doc
+
+    def find(self):
+        return _MemoryCursor(self.store.values())
+
+    async def update_one(self, query, update):
+        _id = query.get("_id")
+        if _id in self.store:
+            self.store[_id].update(update.get("$set", {}))
+
+    async def delete_one(self, query):
+        _id = query.get("_id")
+        if _id in self.store:
+            del self.store[_id]
+
+    async def find_one(self, query):
+        _id = query.get("_id")
+        return self.store.get(_id)
+
+
+if not hasattr(db, "action_mappings"):
+    db.action_mappings = _MemoryCollection()
+if not hasattr(db, "workflow_mappings"):
+    db.workflow_mappings = _MemoryCollection()
+if not hasattr(db, "parameter_mappings"):
+    db.parameter_mappings = _MemoryCollection()
+if not hasattr(db, "civitai_key"):
+    db.civitai_key = _MemoryCollection()
 
 # Base URL for the ComfyUI backend
 COMFYUI_BASE_URL = os.environ.get("COMFYUI_BASE_URL", "http://localhost:8188")
@@ -231,7 +276,7 @@ async def update_action_mapping(action_id: str, mapping: ActionMapping):
 @api_router.delete("/actions/{action_id}")
 async def delete_action_mapping(action_id: str):
     await db.action_mappings.delete_one({"_id": action_id})
-    return api_response({"message": "Action mapping deleted"})
+    return api_response({"message": "Action deleted"})
 
 # Relational Workflow Endpoints using SQLAlchemy
 @api_router.post("/relational/workflows", response_model=WorkflowMapping)
@@ -650,6 +695,14 @@ async def civitai_models(limit: int = 20, page: int = 1, query: str | None = Non
         params["query"] = query
     data = await civitai_fetch("/models", params=params, api_key=api_key)
     return api_response(data)
+
+
+@api_router.post("/maintenance/cleanup")
+async def run_cleanup(background_tasks: BackgroundTasks, days: int = 7):
+    """Trigger background cleanup of temporary files."""
+    paths = os.environ.get("CJ_CLEAN_PATHS", "").split(":")
+    background_tasks.add_task(cleanup_task, paths, days)
+    return api_response({"message": "Cleanup started"})
 
 
 # Include the router in the main app
