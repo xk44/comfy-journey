@@ -1,0 +1,47 @@
+Design a lightweight backend that proxies requests from the frontend to the ComfyUI API endpoints, including support for submitting prompts, querying image job history, and managing the active generation queue.
+
+Implement a real-time progress system using WebSockets or Server-Sent Events that pushes image generation updates and queue status to the frontend UI without polling.
+
+Standardize all backend responses to return a consistent structure including success status, payload, and full debug info or error traces if in development mode.
+
+Create a relational schema for workflows and user-defined actions that maps each frontend button (like upscale, zoom, pan) to a specific ComfyUI workflow.
+
+Connect the frontend Workflow Manager UI to this backend so that users can upload, edit, delete, and assign workflows to action slots, including dynamic parameter support per action.
+
+Develop a prompt-parsing engine that recognizes shortcodes like "--ar 16:9" or "--style vivid", parses them reliably, and maps them to specific node parameter updates in one or more workflows.
+
+Translate parsed shortcode tokens into structured JSON patch operations that directly modify the relevant parts of a workflow before submission.
+
+Support parameter definitions in the UI (such as code, node, parameter, value template) so users can define new shortcodes and dynamically map them to backend nodes.
+
+Provide visual autocomplete in the prompt bar for available parameters as users type, showing hints for each shortcode.
+
+Integrate with Civitai by allowing users to input and store their Civitai API key securely in the settings panel, encrypted and never exposed to the client or logs.
+
+Use the Civitai API to fetch and display images, prompts, and models in the Explore page, with lazy loading and infinite scrolling for browsing high volumes of results.
+
+Connect Explore-page images to the prompt system by enabling one-click "generate from this prompt" which pushes the selected prompt directly into the generation input bar.
+
+Implement throttling and caching when interacting with the Civitai API to respect their rate limits and usage guidelines.
+
+Build a responsive UI experience modeled after Midjourney, including keyboard shortcuts (e.g. `/` to focus prompt bar, ↑↓ to navigate history) and drag-and-drop image support to trigger img2img workflows.
+
+Display generation progress using toast notifications or overlays that show job status transitions (queued → generating → done or error) with unique job IDs.
+
+Add hover-activated image toolbars to each image tile in the gallery or Create page that provide quick access to mapped actions like upscale or zoom.
+
+Support theme switching (dark/light) stored in local storage and toggled via the settings panel.
+
+Implement a full-featured image editing page that supports mask painting (erase/restore), brush size control, undo, and layered edits, and allows users to submit the edited image directly to workflows like inpaint or outpaint.
+
+Store all user-submitted prompts, workflows, image outputs, parameters, and actions in a persistent SQL database with relational consistency and auditing.
+
+Log every ComfyUI backend call with full JSON request, response, status, timestamps, and runtime so performance can be debugged and replayed.
+
+Provide background cleanup and data maintenance tools for thumbnails, temp files, disk quotas, and expired image outputs to keep storage usage optimal.
+
+Apply security best practices including CSRF protection, JWT session rotation, and input validation on all form-based or prompt data.
+
+Encrypt and store Civitai keys securely using a secrets manager or environment variable system, never exposing them in logs or the client.
+
+Implement basic content moderation hooks and rate-limiting per user to prevent abuse or malicious generation activity.
