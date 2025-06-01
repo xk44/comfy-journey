@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorClient
 from .utils import api_response
+from .security import generate_csrf_token
 import os
 import uuid
 from dotenv import load_dotenv
@@ -160,10 +161,13 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    
+
+    csrf_token = generate_csrf_token(user.id)
+
     return api_response({
         "access_token": access_token,
         "token_type": "bearer",
+        "csrf_token": csrf_token,
         "user": {
             "id": user.id,
             "username": user.username,

@@ -10,13 +10,9 @@ from fastapi import (
     BackgroundTasks,
 )
 from fastapi.responses import StreamingResponse
-from .utils import api_response, DEBUG_MODE
-from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
-
 from .utils import api_response, DEBUG_MODE, log_backend_call
-from .external_integrations.civitai import civitai_get
-
-from .external_integrations.civitai import fetch_json as civitai_fetch
+from .security import csrf_protect
+from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
 from cryptography.fernet import Fernet
 import base64
 from sqlalchemy.orm import Session
@@ -30,7 +26,7 @@ from .models import (
 )
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, constr
 from typing import List, Dict, Any, Optional, Set
 import os
 import uuid
@@ -107,15 +103,24 @@ if not fernet_secret:
     fernet_secret = base64.urlsafe_b64encode(key_bytes).decode()
 fernet = Fernet(fernet_secret)
 
-# Load Civitai API key from environment or DB
+async def get_civitai_key() -> str | None:
+    if os.environ.get("CIVITAI_API_KEY"):
+        return os.environ["CIVITAI_API_KEY"]
+    record = await db.civitai_key.find_one({"_id": "global"})
+    if record and "key" in record:
+        try:
+            return fernet.decrypt(record["key"].encode()).decode()
+        except Exception:
+            return None
+    return None
+
+# Load Civitai API key from environment or DB at startup
 if not os.environ.get("CIVITAI_API_KEY"):
     try:
         loop = asyncio.get_event_loop()
-        record = loop.run_until_complete(db.civitai_key.find_one({"_id": "global"}))
-        if record and "key" in record:
-            os.environ["CIVITAI_API_KEY"] = (
-                fernet.decrypt(record["key"].encode()).decode()
-            )
+        key = loop.run_until_complete(get_civitai_key())
+        if key:
+            os.environ["CIVITAI_API_KEY"] = key
     except Exception:
         pass
 
@@ -230,6 +235,11 @@ class ImageOutputRecord(BaseModel):
     prompt_id: str
     file_path: str
     created_at: Optional[str] = None
+
+
+class GenerateRequest(BaseModel):
+    prompt: constr(min_length=1, max_length=500)
+    workflow_id: Optional[str] = None
 
 
 # Parameter Manager Routes
@@ -674,19 +684,17 @@ async def get_sample_workflows():
 # Simple workflow execution and progress streaming
 @api_router.post("/generate")
 async def start_generation(
-    prompt: str = Body(..., embed=True),
-    workflow_id: Optional[str] = None,
+    data: GenerateRequest,
     background_tasks: BackgroundTasks = None,
     dbs: Session = Depends(get_sql_db),
+    _csrf: None = Depends(csrf_protect),
 ):
     """Create a fake generation job and simulate progress."""
     job_id = str(uuid.uuid4())
-    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": prompt}
+    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": data.prompt}
 
     # store prompt record
-    prm = Prompt(
-        id=job_id, text=prompt, workflow_id=workflow_id
-    )
+    prm = Prompt(id=job_id, text=data.prompt, workflow_id=data.workflow_id)
     dbs.add(prm)
     dbs.commit()
 
@@ -800,28 +808,26 @@ async def proxy_comfyui_queue():
 
 # --- Civitai API key management ---
 @api_router.post("/civitai/key")
-async def set_civitai_key(data: Dict[str, str]):
+async def set_civitai_key(
+    data: Dict[str, str], _csrf: None = Depends(csrf_protect)
+):
     """Store the Civitai API key encrypted in the database"""
     api_key = data.get("api_key")
     if not api_key:
         raise HTTPException(status_code=400, detail="api_key required")
     encrypted = fernet.encrypt(api_key.encode()).decode()
-    await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
-    os.environ["CIVITAI_API_KEY"] = api_key
-
     await db.civitai_key.update_one(
         {"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True
     )
+    os.environ["CIVITAI_API_KEY"] = api_key
     return api_response({"message": "API key saved"})
 
 
 @api_router.get("/civitai/key")
 async def has_civitai_key():
     """Check if a Civitai API key has been stored"""
-    if os.environ.get("CIVITAI_API_KEY"):
-        return api_response({"key_set": True})
-    record = await db.civitai_key.find_one({"_id": "global"})
-    return api_response({"key_set": bool(record)})
+    key = await get_civitai_key()
+    return api_response({"key_set": bool(key)})
 
 
 @api_router.get("/civitai/{path:path}")
@@ -836,10 +842,7 @@ async def civitai_proxy(path: str, request: Request):
 @api_router.get("/civitai/images")
 async def civitai_images(limit: int = 20, page: int = 1, query: str | None = None):
     """Fetch images from Civitai with basic caching and rate limiting."""
-    record = await db.civitai_key.find_one({"_id": "global"})
-    api_key = None
-    if record:
-        api_key = fernet.decrypt(record["key"].encode()).decode()
+    api_key = await get_civitai_key()
     params = {"limit": limit, "page": page}
     if query:
         params["query"] = query
@@ -850,10 +853,7 @@ async def civitai_images(limit: int = 20, page: int = 1, query: str | None = Non
 @api_router.get("/civitai/models")
 async def civitai_models(limit: int = 20, page: int = 1, query: str | None = None):
     """Fetch models from Civitai with basic caching and rate limiting."""
-    record = await db.civitai_key.find_one({"_id": "global"})
-    api_key = None
-    if record:
-        api_key = fernet.decrypt(record["key"].encode()).decode()
+    api_key = await get_civitai_key()
     params = {"limit": limit, "page": page}
     if query:
         params["query"] = query
