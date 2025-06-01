@@ -24,6 +24,13 @@ class PromptParserTests(unittest.TestCase):
         self.assertEqual(clean, "A cat")
         self.assertEqual(tokens["ar"], "1:1")
         self.assertEqual(tokens["style"], "comic book")
+        
+    def test_parse_prompt_with_quotes(self):
+        prompt = 'A cat --style "very cool" --ar 1:1'
+        clean, tokens = parse_prompt(prompt)
+        self.assertEqual(clean, 'A cat')
+        self.assertEqual(tokens['style'], 'very cool')
+        self.assertEqual(tokens['ar'], '1:1')
 
 if __name__ == "__main__":
     unittest.main()
