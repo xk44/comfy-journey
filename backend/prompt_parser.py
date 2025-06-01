@@ -1,5 +1,4 @@
 import shlex
-import re
 from typing import Tuple, Dict, List, Any
 
 SHORTCODE_PATTERN = re.compile(r"--(?P<key>\w+)(?:\s+(?P<value>(\"[^\"]*\"|'[^']*'|[^-]+)))?")
@@ -42,6 +41,7 @@ def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
 
     clean_prompt = " ".join(remaining_tokens).strip()
     clean_prompt = SHORTCODE_PATTERN.sub("", clean_prompt).strip()
+    clean_prompt = " ".join(remaining_tokens)
     return clean_prompt, params
 
 

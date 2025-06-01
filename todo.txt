@@ -2,6 +2,8 @@
 
 [PARTIAL] Implement a real-time progress system using WebSockets or Server-Sent Events that pushes image generation updates and queue status to the frontend UI without polling.
 
+[DONE] Implement a real-time progress system using WebSockets or Server-Sent Events that pushes image generation updates and queue status to the frontend UI without polling.
+
 Standardize all backend responses to return a consistent structure including success status, payload, and full debug info or error traces if in development mode.
 
 Create a relational schema for workflows and user-defined actions that maps each frontend button (like upscale, zoom, pan) to a specific ComfyUI workflow.
