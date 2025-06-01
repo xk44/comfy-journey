@@ -244,6 +244,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 10px;
+  position: relative;
 }
 
 .prompt-input {
@@ -259,6 +260,28 @@ button:disabled {
 .prompt-input:focus {
   outline: none;
   border-color: var(--accent-color);
+}
+
+.prompt-suggestions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  z-index: 20;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.prompt-suggestions li {
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.prompt-suggestions li:hover {
+  background: var(--bg-hover);
 }
 
 .prompt-tools {
