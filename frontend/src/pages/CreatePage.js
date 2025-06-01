@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 import parameterService from '../services/parameterService';
+import workflowService from '../services/workflowService';
+import progressService from '../services/progressService';
 
 const CreatePage = () => {
   const [prompt, setPrompt] = useState('');
@@ -98,41 +100,46 @@ const CreatePage = () => {
       setLoading(true);
       // Extract parameter codes from the prompt
       const { cleanPrompt, parameters } = parameterService.parseParameterCodes(prompt, parameterMappings);
-      
-      // Mock generating images for demo
-      setTimeout(() => {
-        // Add new mock generated images at the beginning
-        const newImages = [
-          {
-            id: Date.now().toString(),
-            url: 'https://source.unsplash.com/random/500x500/?galaxy,nebula&' + Date.now(),
-            prompt: prompt,
-            metadata: parameters
-          },
-          {
-            id: (Date.now() + 1).toString(),
-            url: 'https://source.unsplash.com/random/500x500/?space,stars&' + Date.now(),
-            prompt: prompt,
-            metadata: parameters
-          },
-          {
-            id: (Date.now() + 2).toString(),
-            url: 'https://source.unsplash.com/random/500x500/?cosmos,galaxy&' + Date.now(),
-            prompt: prompt,
-            metadata: parameters
-          },
-          {
-            id: (Date.now() + 3).toString(),
-            url: 'https://source.unsplash.com/random/500x500/?nebula,stars&' + Date.now(),
-            prompt: prompt,
-            metadata: parameters
-          }
-        ];
-        
-        setImages(prevImages => [...newImages, ...prevImages]);
+
+      const res = await workflowService.executeWorkflow(null, cleanPrompt);
+      const jobId = res?.payload?.job_id;
+      if (!jobId) {
         setLoading(false);
-        showToast('Images generated successfully', 'success');
-      }, 2000);
+        showToast('Failed to start generation', 'error');
+        return;
+      }
+
+      showToast('Job queued', 'info');
+
+      const source = progressService.subscribe(
+        jobId,
+        (data) => {
+          const job = data.payload?.job;
+          if (!job) return;
+          showToast(`Job ${job.status} (${job.progress}%)`, 'info');
+          if (job.status === 'done') {
+            // Add mock images when done (demo purposes)
+            const newImages = [
+              {
+                id: Date.now().toString(),
+                url: 'https://source.unsplash.com/random/500x500/?galaxy,nebula&' + Date.now(),
+                prompt: prompt,
+                metadata: parameters
+              }
+            ];
+            setImages(prev => [...newImages, ...prev]);
+            setLoading(false);
+            source.close();
+            showToast('Images generated successfully', 'success');
+          }
+        },
+        (err) => {
+          console.error('Progress stream error', err);
+          source.close();
+          setLoading(false);
+          showToast('Progress connection lost', 'error');
+        }
+      );
     } catch (error) {
       console.error('Error generating images:', error);
       setLoading(false);

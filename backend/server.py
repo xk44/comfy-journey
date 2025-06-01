@@ -318,9 +318,15 @@ async def stream_progress(job_id: str):
         while True:
             job = jobs.get(job_id)
             if not job:
-                yield "event: end\ndata: job_not_found\n\n"
+                payload = {"success": False, "error": "job_not_found"}
+                yield f"event: end\ndata: {json.dumps(payload)}\n\n"
                 break
-            yield f"data: {json.dumps(job)}\n\n"
+            queue_size = sum(1 for j in jobs.values() if j["status"] != "done")
+            data = {
+                "success": True,
+                "payload": {"job": job, "queue_size": queue_size},
+            }
+            yield f"data: {json.dumps(data)}\n\n"
             if job["status"] == "done":
                 break
             await asyncio.sleep(0.1)
