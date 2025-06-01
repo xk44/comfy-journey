@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Body, Depends, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Body, Depends, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from .utils import api_response, DEBUG_MODE
 from starlette.middleware.cors import CORSMiddleware
@@ -326,6 +326,23 @@ async def stream_progress(job_id: str):
             await asyncio.sleep(0.1)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@api_router.websocket("/progress/ws/{job_id}")
+async def websocket_progress(websocket: WebSocket, job_id: str):
+    await websocket.accept()
+    try:
+        while True:
+            job = jobs.get(job_id)
+            if not job:
+                await websocket.send_json({"event": "end", "error": "job_not_found"})
+                break
+            await websocket.send_json(job)
+            if job["status"] == "done":
+                break
+            await asyncio.sleep(0.1)
+    except WebSocketDisconnect:
+        pass
 
 # ComfyUI proxy endpoints
 @api_router.post("/comfyui/prompt")
