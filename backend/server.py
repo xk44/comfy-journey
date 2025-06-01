@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Body, Depends, Request
+from fastapi.responses import StreamingResponse
 from .utils import api_response, DEBUG_MODE
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -8,6 +9,8 @@ import os
 import uuid
 from datetime import datetime
 import logging
+import asyncio
+import json
 import requests
 
 # Load environment variables
@@ -24,6 +27,9 @@ COMFYUI_BASE_URL = os.environ.get("COMFYUI_BASE_URL", "http://localhost:8188")
 
 # Create the main app
 app = FastAPI()
+
+# Simple in-memory job store for demo progress streaming
+jobs: Dict[str, Dict[str, Any]] = {}
 
 
 @app.exception_handler(HTTPException)
@@ -279,6 +285,47 @@ async def get_sample_workflows():
             }
         }
     ])
+
+# Simple workflow execution and progress streaming
+@api_router.post("/generate")
+async def start_generation(prompt: str = Body(..., embed=True)):
+    """Create a fake generation job and simulate progress."""
+    job_id = str(uuid.uuid4())
+    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": prompt}
+
+    async def run_job(jid: str):
+        jobs[jid]["status"] = "generating"
+        for i in range(1, 6):
+            await asyncio.sleep(0.1)
+            jobs[jid]["progress"] = i * 20
+        jobs[jid]["status"] = "done"
+
+    asyncio.create_task(run_job(job_id))
+    return api_response({"job_id": job_id})
+
+
+@api_router.get("/progress/{job_id}")
+async def get_progress(job_id: str):
+    job = jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return api_response(job)
+
+
+@api_router.get("/progress/stream/{job_id}")
+async def stream_progress(job_id: str):
+    async def event_generator():
+        while True:
+            job = jobs.get(job_id)
+            if not job:
+                yield "event: end\ndata: job_not_found\n\n"
+                break
+            yield f"data: {json.dumps(job)}\n\n"
+            if job["status"] == "done":
+                break
+            await asyncio.sleep(0.1)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 # ComfyUI proxy endpoints
 @api_router.post("/comfyui/prompt")
