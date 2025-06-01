@@ -12,6 +12,8 @@ from fastapi import (
 from fastapi.responses import StreamingResponse
 from .utils import api_response, DEBUG_MODE
 from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
+import hmac
+import hashlib
 
 from .utils import api_response, DEBUG_MODE, log_backend_call
 from .external_integrations.civitai import civitai_get
@@ -107,6 +109,31 @@ if not fernet_secret:
     fernet_secret = base64.urlsafe_b64encode(key_bytes).decode()
 fernet = Fernet(fernet_secret)
 
+# CSRF protection setup
+
+CSRF_SECRET = os.environ.get("CJ_CSRF_SECRET")
+
+
+def generate_csrf_token() -> str:
+    """Create a signed CSRF token."""
+    if not CSRF_SECRET:
+        return ""
+    raw = str(uuid.uuid4())
+    sig = hmac.new(CSRF_SECRET.encode(), raw.encode(), hashlib.sha256).hexdigest()
+    return f"{raw}:{sig}"
+
+
+def verify_csrf_token(token: str) -> bool:
+    """Validate a signed CSRF token."""
+    if not CSRF_SECRET:
+        return True
+    try:
+        raw, sig = token.split(":", 1)
+    except ValueError:
+        return False
+    expected = hmac.new(CSRF_SECRET.encode(), raw.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(sig, expected)
+
 # Load Civitai API key from environment or DB
 if not os.environ.get("CIVITAI_API_KEY"):
     try:
@@ -119,6 +146,16 @@ if not os.environ.get("CIVITAI_API_KEY"):
     except Exception:
         pass
 
+if not os.environ.get("CIVITAI_API_KEY"):
+    key_path = os.environ.get("CIVITAI_KEY_FILE")
+    if key_path and os.path.isfile(key_path):
+        try:
+            with open(key_path, "rb") as fh:
+                encrypted = fh.read().strip()
+            os.environ["CIVITAI_API_KEY"] = fernet.decrypt(encrypted).decode()
+        except Exception:
+            logging.exception("Failed to load Civitai key from file")
+
 # Cleanup configuration
 CLEAN_PATHS = os.environ.get("CJ_CLEAN_PATHS", "").split(":")
 CLEAN_DAYS = int(os.environ.get("CJ_CLEAN_DAYS", "7"))
@@ -127,6 +164,16 @@ CLEAN_INTERVAL = int(os.environ.get("CJ_CLEAN_INTERVAL", "0"))
 # Create the main app
 app = FastAPI()
 init_db()
+
+@app.middleware("http")
+async def csrf_middleware(request: Request, call_next):
+    if CSRF_SECRET and request.method in {"POST", "PUT", "DELETE", "PATCH"}:
+        token = request.headers.get("X-CSRF-Token")
+        cookie = request.cookies.get("csrf_token")
+        if not token or token != cookie or not verify_csrf_token(token):
+            return api_response(None, success=False, error="CSRF validation failed")
+    response = await call_next(request)
+    return response
 
 # Simple in-memory job store for demo progress streaming
 jobs: Dict[str, Dict[str, Any]] = {}
@@ -183,6 +230,14 @@ async def handle_generic_exception(request: Request, exc: Exception):
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+@api_router.get("/csrf")
+async def get_csrf_token():
+    token = generate_csrf_token()
+    resp = api_response({"token": token})
+    if token:
+        resp.set_cookie("csrf_token", token, httponly=True)
+    return resp
+
 
 # Define Models
 class ParameterMapping(BaseModel):
@@ -230,6 +285,11 @@ class ImageOutputRecord(BaseModel):
     prompt_id: str
     file_path: str
     created_at: Optional[str] = None
+
+
+class GenerateRequest(BaseModel):
+    prompt: str = Field(..., max_length=2000)
+    workflow_id: Optional[str] = None
 
 
 # Parameter Manager Routes
@@ -674,18 +734,17 @@ async def get_sample_workflows():
 # Simple workflow execution and progress streaming
 @api_router.post("/generate")
 async def start_generation(
-    prompt: str = Body(..., embed=True),
-    workflow_id: Optional[str] = None,
+    payload: GenerateRequest,
     background_tasks: BackgroundTasks = None,
     dbs: Session = Depends(get_sql_db),
 ):
     """Create a fake generation job and simulate progress."""
     job_id = str(uuid.uuid4())
-    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": prompt}
+    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": payload.prompt}
 
     # store prompt record
     prm = Prompt(
-        id=job_id, text=prompt, workflow_id=workflow_id
+        id=job_id, text=payload.prompt, workflow_id=payload.workflow_id
     )
     dbs.add(prm)
     dbs.commit()
@@ -809,9 +868,13 @@ async def set_civitai_key(data: Dict[str, str]):
     await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
     os.environ["CIVITAI_API_KEY"] = api_key
 
-    await db.civitai_key.update_one(
-        {"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True
-    )
+    key_path = os.environ.get("CIVITAI_KEY_FILE")
+    if key_path:
+        try:
+            with open(key_path, "wb") as fh:
+                fh.write(encrypted.encode())
+        except Exception:
+            logging.exception("Failed to write Civitai key file")
     return api_response({"message": "API key saved"})
 
 
