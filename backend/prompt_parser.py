@@ -50,6 +50,10 @@ def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
             remaining.append(token)
         i += 1
 
+    clean_prompt = " ".join(remaining)
+    clean_prompt = SHORTCODE_PATTERN.sub("", clean_prompt).strip()
+
+
     clean_prompt = " ".join(remaining).strip()
     clean_prompt = SHORTCODE_PATTERN.sub("", clean_prompt).strip()
     return clean_prompt, params
