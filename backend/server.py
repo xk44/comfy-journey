@@ -70,6 +70,7 @@ init_db()
 
 # Simple in-memory job store for demo progress streaming
 jobs: Dict[str, Dict[str, Any]] = {}
+action_store: Dict[str, Dict[str, Any]] = {}
 
 
 def get_sql_db():
@@ -208,12 +209,18 @@ async def delete_workflow_mapping(workflow_id: str):
 async def create_action_mapping(mapping: ActionMapping):
     mapping_dict = mapping.dict()
     mapping_dict["_id"] = mapping_dict["id"]
-    await db.action_mappings.insert_one(mapping_dict)
+    if hasattr(db, "action_mappings"):
+        await db.action_mappings.insert_one(mapping_dict)
+    else:
+        action_store[mapping_dict["id"]] = mapping_dict
     return api_response(mapping_dict)
 
 @api_router.get("/actions", response_model=List[ActionMapping])
 async def get_action_mappings():
-    mappings = await db.action_mappings.find().to_list(1000)
+    if hasattr(db, "action_mappings"):
+        mappings = await db.action_mappings.find().to_list(1000)
+    else:
+        mappings = list(action_store.values())
     for m in mappings:
         m["id"] = str(m.get("_id", m.get("id", "")))
         if "_id" in m:
@@ -225,13 +232,20 @@ async def update_action_mapping(action_id: str, mapping: ActionMapping):
     mapping_dict = mapping.dict()
     if "id" in mapping_dict:
         del mapping_dict["id"]
-    await db.action_mappings.update_one({"_id": action_id}, {"$set": mapping_dict})
+    if hasattr(db, "action_mappings"):
+        await db.action_mappings.update_one({"_id": action_id}, {"$set": mapping_dict})
+    else:
+        if action_id in action_store:
+            action_store[action_id].update(mapping_dict)
     return api_response({**mapping_dict, "id": action_id})
 
 @api_router.delete("/actions/{action_id}")
 async def delete_action_mapping(action_id: str):
-    await db.action_mappings.delete_one({"_id": action_id})
-    return api_response({"message": "Action mapping deleted"})
+    if hasattr(db, "action_mappings"):
+        await db.action_mappings.delete_one({"_id": action_id})
+    else:
+        action_store.pop(action_id, None)
+    return api_response({"message": "Action deleted"})
 
 # Relational Workflow Endpoints using SQLAlchemy
 @api_router.post("/relational/workflows", response_model=WorkflowMapping)

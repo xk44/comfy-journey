@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 import workflowService from '../services/workflowService';
+import actionService from '../services/actionService';
 
 const WorkflowsPage = () => {
   const [workflows, setWorkflows] = useState([]);
@@ -27,15 +28,19 @@ const WorkflowsPage = () => {
   const { currentUser } = useAuth();
   
   useEffect(() => {
-    const fetchWorkflows = async () => {
+    const unwrap = (resp) => (resp && resp.payload ? resp.payload : resp);
+
+    const fetchData = async () => {
       try {
         setLoading(true);
-        
-        // For demo, we'll use sample workflows
-        const response = await workflowService.getWorkflows();
-        
-        // If no workflows are returned from the server, use sample data
-        if (!response || response.length === 0) {
+
+        const [wfResp, actResp] = await Promise.all([
+          workflowService.getWorkflows(),
+          actionService.getActions()
+        ]);
+
+        const wfList = unwrap(wfResp) || [];
+        if (wfList.length === 0) {
           const sampleWorkflows = [
             {
               id: 'workflow1',
@@ -55,9 +60,23 @@ const WorkflowsPage = () => {
           ];
           setWorkflows(sampleWorkflows);
         } else {
-          setWorkflows(response);
+          setWorkflows(wfList);
         }
-        
+
+        const actions = unwrap(actResp) || [];
+        const mapping = { ...actionMappings };
+        actions.forEach((a) => {
+          const wf = wfList.find((w) => w.id === a.workflow_id);
+          mapping[a.button] = {
+            ...mapping[a.button],
+            id: a.id,
+            name: a.button || a.name,
+            assigned: wf ? wf.name : 'None',
+            parameters: a.parameters || {}
+          };
+        });
+        setActionMappings(mapping);
+
         setLoading(false);
       } catch (error) {
         console.error('Error fetching workflows:', error);
@@ -65,8 +84,9 @@ const WorkflowsPage = () => {
         showToast('Failed to load workflows. Please try again.', 'error');
       }
     };
-    
-    fetchWorkflows();
+
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   const handleInputChange = (e) => {
@@ -89,20 +109,29 @@ const WorkflowsPage = () => {
       showToast('Please enter a workflow name', 'error');
       return;
     }
-    
+
     try {
-      // In a real implementation, you would upload the file and create the workflow
-      const workflow = {
-        id: `workflow${Date.now()}`,
+      let data = null;
+      if (newWorkflow.file) {
+        const text = await newWorkflow.file.text();
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          showToast('Invalid workflow file', 'error');
+          return;
+        }
+      }
+
+      const payload = {
         name: newWorkflow.name,
-        description: newWorkflow.description || ''
+        description: newWorkflow.description || '',
+        data
       };
-      
-      // Save to backend
-      // const createdWorkflow = await workflowService.createWorkflow(workflow);
-      
-      // For demo, just add to local state
-      setWorkflows([...workflows, workflow]);
+
+      const resp = await workflowService.createWorkflow(payload);
+      const created = resp && resp.payload ? resp.payload : resp;
+
+      setWorkflows([...workflows, created]);
       
       // Reset form
       setNewWorkflow({
@@ -118,41 +147,74 @@ const WorkflowsPage = () => {
     }
   };
   
-  const handleUpdateActionMapping = (actionName, workflowId) => {
-    const selectedWorkflow = workflows.find(w => w.id === workflowId);
-    
-    if (selectedWorkflow) {
+  const handleUpdateActionMapping = async (actionName, workflowId) => {
+    const selectedWorkflow = workflows.find((w) => w.id === workflowId);
+    if (!selectedWorkflow) return;
+
+    const existing = actionMappings[actionName] || { name: actionName };
+    const payload = {
+      button: actionName,
+      name: actionName,
+      workflow_id: workflowId,
+      parameters: existing.parameters || {}
+    };
+
+    try {
+      let resp;
+      if (existing.id) {
+        resp = await actionService.updateAction(existing.id, payload);
+      } else {
+        resp = await actionService.createAction(payload);
+      }
+      const data = resp && resp.payload ? resp.payload : resp;
+
       setActionMappings({
         ...actionMappings,
         [actionName]: {
-          ...actionMappings[actionName],
-          assigned: selectedWorkflow.name
+          ...existing,
+          ...data,
+          assigned: selectedWorkflow.name,
+          workflow_id: workflowId
         }
       });
-      
+
       showToast(`"${actionName}" mapped to "${selectedWorkflow.name}"`, 'success');
+    } catch (error) {
+      console.error('Error saving action mapping:', error);
+      showToast('Failed to map action. Please try again.', 'error');
     }
   };
   
   const handleDeleteWorkflow = async (id) => {
     if (window.confirm('Are you sure you want to delete this workflow?')) {
       try {
-        // Delete from backend
-        // await workflowService.deleteWorkflow(id);
-        
+        await workflowService.deleteWorkflow(id);
+
         // Remove from local state
         setWorkflows(workflows.filter(w => w.id !== id));
-        
+
         // Update any action mappings using this workflow
         const workflowName = workflows.find(w => w.id === id)?.name;
         const updatedMappings = { ...actionMappings };
-        
-        for (const action in updatedMappings) {
-          if (updatedMappings[action].assigned === workflowName) {
-            updatedMappings[action].assigned = 'None';
+
+        for (const [key, map] of Object.entries(updatedMappings)) {
+          if (map.workflow_id === id) {
+            if (map.id) {
+              try {
+                await actionService.deleteAction(map.id);
+              } catch (err) {
+                console.error('Error deleting action', err);
+              }
+            }
+            updatedMappings[key] = {
+              ...map,
+              assigned: 'None',
+              workflow_id: undefined,
+              id: undefined
+            };
           }
         }
-        
+
         setActionMappings(updatedMappings);
         
         showToast('Workflow deleted successfully', 'success');
