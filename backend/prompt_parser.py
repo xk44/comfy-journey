@@ -1,3 +1,4 @@
+import re
 import shlex
 from typing import Tuple, Dict, List, Any
 
@@ -5,18 +6,7 @@ SHORTCODE_PATTERN = re.compile(r"--(?P<key>\w+)(?:\s+(?P<value>(\"[^\"]*\"|'[^']
 
 
 def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
-    """Parse a prompt string extracting shortcode parameters.
-
-    Supports tokens in the form ``--key value`` or ``--key=value``. Values may
-    be quoted with single or double quotes.
-    Returns ``(clean_prompt, params_dict)``.
-
-    """Parse a prompt extracting shortcode parameters.
-
-    Supports tokens in the form ``--key value`` or ``--key=value``.
-    Values may be quoted with single or double quotes.
-    Returns a tuple ``(clean_prompt, params_dict)``.
-    """
+    """Parse a prompt extracting shortcode parameters."""
     params: Dict[str, str] = {}
     remaining_tokens: List[str] = []
 
@@ -45,8 +35,6 @@ def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
             remaining_tokens.append(token)
         i += 1
 
-    clean_prompt = " ".join(remaining_tokens).strip()
-    clean_prompt = SHORTCODE_PATTERN.sub("", clean_prompt).strip()
     clean_prompt = " ".join(remaining_tokens)
     clean_prompt = SHORTCODE_PATTERN.sub("", clean_prompt).strip()
 

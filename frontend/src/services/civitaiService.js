@@ -1,15 +1,22 @@
 // Service for interacting with the Civitai API
 const CIVITAI_API_URL = 'https://civitai.com/api/v1';
 
-// You would typically store this in an environment variable
-// For now, we'll leave it empty and allow users to provide it in settings
-let CIVITAI_API_KEY = localStorage.getItem('civitai_api_key') || '';
+// API key is stored securely on the backend. These helpers
+// allow the frontend to set the key without persisting it locally.
+let CIVITAI_API_KEY = '';
 
-// Update the API key
-export const setApiKey = (apiKey) => {
+export const setApiKey = async (apiKey) => {
   CIVITAI_API_KEY = apiKey;
-  localStorage.setItem('civitai_api_key', apiKey);
-  console.log('CivitAI API key has been set');
+  try {
+    await fetch('/api/civitai/key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: apiKey })
+    });
+    console.log('CivitAI API key saved');
+  } catch (err) {
+    console.error('Failed to save API key', err);
+  }
   return CIVITAI_API_KEY;
 };
 
@@ -145,19 +152,11 @@ export const uploadImage = async (imageUrl, promptText, workflowId) => {
 
 // Check if API key is valid
 export const checkApiKey = async () => {
-  if (!CIVITAI_API_KEY) {
-    return false;
-  }
-  
   try {
-    // Try to get user info or another restricted endpoint
-    const response = await fetch(`${CIVITAI_API_URL}/user/me`, {
-      headers: {
-        'Authorization': `Bearer ${CIVITAI_API_KEY}`
-      }
-    });
-    
-    return response.ok;
+    const res = await fetch('/api/civitai/key');
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.payload && data.payload.key_set;
   } catch (error) {
     console.error('Error checking API key:', error);
     return false;

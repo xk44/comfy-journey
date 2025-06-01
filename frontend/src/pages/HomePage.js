@@ -87,11 +87,14 @@ const HomePage = () => {
       };
       loadWorkflows();
       
-      // Load settings
-      setSettings(prevSettings => ({
-        ...prevSettings,
-        civitaiApiKey: localStorage.getItem('civitai_api_key') || ""
-      }));
+      // Load settings from backend
+      (async () => {
+        const hasKey = await civitaiService.checkApiKey();
+        setSettings(prevSettings => ({
+          ...prevSettings,
+          civitaiApiKey: hasKey ? 'set' : ''
+        }));
+      })();
     }
   }, [currentUser]);
 
