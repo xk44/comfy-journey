@@ -1,17 +1,13 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Body, Depends
-from fastapi.responses import JSONResponse
-from .utils import api_response
+from fastapi import FastAPI, APIRouter, HTTPException, Body, Depends, Request
+from .utils import api_response, DEBUG_MODE
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 import os
-import sys
-from pathlib import Path
 import uuid
 from datetime import datetime
 import logging
-import json
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -24,6 +20,18 @@ db = client.get_database("comfyui_frontend")
 
 # Create the main app
 app = FastAPI()
+
+
+@app.exception_handler(HTTPException)
+async def handle_http_exception(request: Request, exc: HTTPException):
+    debug = {"detail": exc.detail, "status_code": exc.status_code}
+    return api_response(success=False, error=exc.detail, debug_info=debug)
+
+
+@app.exception_handler(Exception)
+async def handle_generic_exception(request: Request, exc: Exception):
+    debug = {"error_type": type(exc).__name__, "detail": str(exc)}
+    return api_response(success=False, error=str(exc), debug_info=debug)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
