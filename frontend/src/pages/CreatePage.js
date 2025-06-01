@@ -14,6 +14,8 @@ const CreatePage = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [parameterMappings, setParameterMappings] = useState([]);
+  const [promptHistory, setPromptHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
 
   const { currentUser } = useAuth();
 
@@ -25,6 +27,34 @@ const CreatePage = () => {
       localStorage.removeItem('imported_prompt');
     }
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === '/' && document.activeElement !== inputRef.current) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      } else if (e.key === 'ArrowUp' && document.activeElement === inputRef.current) {
+        e.preventDefault();
+        if (promptHistory.length === 0) return;
+        const idx = historyIndex < 0 ? promptHistory.length - 1 : Math.max(historyIndex - 1, 0);
+        setHistoryIndex(idx);
+        setPrompt(promptHistory[idx] || '');
+      } else if (e.key === 'ArrowDown' && document.activeElement === inputRef.current) {
+        e.preventDefault();
+        if (promptHistory.length === 0) return;
+        let idx = historyIndex + 1;
+        if (idx >= promptHistory.length) {
+          setHistoryIndex(promptHistory.length);
+          setPrompt('');
+        } else {
+          setHistoryIndex(idx);
+          setPrompt(promptHistory[idx] || '');
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [promptHistory, historyIndex]);
 
   // Categories for the tabs
   const categories = ['Random', 'Hot', 'Top Month', 'Likes'];
@@ -130,6 +160,9 @@ const CreatePage = () => {
       return;
     }
 
+    setPromptHistory((prev) => [...prev, prompt]);
+    setHistoryIndex(-1);
+
     try {
       setLoading(true);
       // Extract parameter codes from the prompt
@@ -195,8 +228,30 @@ const CreatePage = () => {
     console.log('Navigate to editor with image:', image);
   };
 
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = { id: `drop-${Date.now()}`, url: ev.target?.result, file };
+          setImages((prev) => [img, ...prev]);
+          showToast('Image dropped, starting img2img...', 'info');
+          if (prompt.trim()) handleGenerate();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  };
+
   return (
-    <div className="create-page">
+    <div className="create-page" onDragOver={handleDragOver} onDrop={handleDrop}>
       {toast && (
         <Toast 
           message={toast.message} 
