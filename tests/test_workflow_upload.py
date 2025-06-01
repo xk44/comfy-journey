@@ -5,6 +5,7 @@ import os
 
 os.environ["DATABASE_URL"] = "sqlite:///./test.db"
 
+os.environ["DISABLE_CSRF"] = "true"
 motor_module = types.ModuleType("motor")
 motor_asyncio = types.ModuleType("motor.motor_asyncio")
 
