@@ -8,8 +8,15 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
     BackgroundTasks,
+    Header,
 )
 from fastapi.responses import StreamingResponse
+
+from .utils import api_response, DEBUG_MODE
+from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
+import hmac
+import hashlib
+
 from .utils import api_response, DEBUG_MODE, log_backend_call
 from .security import csrf_protect
 from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
@@ -25,6 +32,7 @@ from .models import (
     ImageOutput,
 )
 from starlette.middleware.cors import CORSMiddleware
+from .csrf import CSRFMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, constr
 from typing import List, Dict, Any, Optional, Set
@@ -103,6 +111,8 @@ if not fernet_secret:
     fernet_secret = base64.urlsafe_b64encode(key_bytes).decode()
 fernet = Fernet(fernet_secret)
 
+
+# Utility helpers for managing encrypted Civitai keys
 async def get_civitai_key() -> str | None:
     if os.environ.get("CIVITAI_API_KEY"):
         return os.environ["CIVITAI_API_KEY"]
@@ -115,6 +125,62 @@ async def get_civitai_key() -> str | None:
     return None
 
 # Load Civitai API key from environment or DB at startup
+
+        return fernet.decrypt(record["key"].encode()).decode()
+    return None
+
+
+async def store_civitai_key(api_key: str) -> None:
+    encrypted = fernet.encrypt(api_key.encode()).decode()
+    await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
+    os.environ["CIVITAI_API_KEY"] = api_key
+
+# Load Civitai API key on startup
+try:
+    loop = asyncio.get_event_loop()
+    if loop.is_running():
+        loop.create_task(get_civitai_key())
+    else:
+        loop.run_until_complete(get_civitai_key())
+except RuntimeError:
+    asyncio.run(get_civitai_key())
+
+# Load Civitai API key from environment, secrets file, or DB
+civitai_file = os.environ.get("CIVITAI_KEY_FILE")
+if civitai_file and os.path.isfile(civitai_file):
+    try:
+        with open(civitai_file, "r", encoding="utf-8") as fh:
+            os.environ["CIVITAI_API_KEY"] = fh.read().strip()
+    except Exception:
+        pass
+elif not os.environ.get("CIVITAI_API_KEY"):
+
+# CSRF protection setup
+
+CSRF_SECRET = os.environ.get("CJ_CSRF_SECRET")
+
+
+def generate_csrf_token() -> str:
+    """Create a signed CSRF token."""
+    if not CSRF_SECRET:
+        return ""
+    raw = str(uuid.uuid4())
+    sig = hmac.new(CSRF_SECRET.encode(), raw.encode(), hashlib.sha256).hexdigest()
+    return f"{raw}:{sig}"
+
+
+def verify_csrf_token(token: str) -> bool:
+    """Validate a signed CSRF token."""
+    if not CSRF_SECRET:
+        return True
+    try:
+        raw, sig = token.split(":", 1)
+    except ValueError:
+        return False
+    expected = hmac.new(CSRF_SECRET.encode(), raw.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(sig, expected)
+
+# Load Civitai API key from environment or DB
 if not os.environ.get("CIVITAI_API_KEY"):
     try:
         loop = asyncio.get_event_loop()
@@ -124,14 +190,48 @@ if not os.environ.get("CIVITAI_API_KEY"):
     except Exception:
         pass
 
+if not os.environ.get("CIVITAI_API_KEY"):
+    key_path = os.environ.get("CIVITAI_KEY_FILE")
+    if key_path and os.path.isfile(key_path):
+        try:
+            with open(key_path, "rb") as fh:
+                encrypted = fh.read().strip()
+            os.environ["CIVITAI_API_KEY"] = fernet.decrypt(encrypted).decode()
+        except Exception:
+            logging.exception("Failed to load Civitai key from file")
+
 # Cleanup configuration
 CLEAN_PATHS = os.environ.get("CJ_CLEAN_PATHS", "").split(":")
 CLEAN_DAYS = int(os.environ.get("CJ_CLEAN_DAYS", "7"))
 CLEAN_INTERVAL = int(os.environ.get("CJ_CLEAN_INTERVAL", "0"))
 
+# CSRF configuration
+CSRF_TOKEN = os.environ.get("CSRF_TOKEN", "")
+CSRF_DISABLED = os.environ.get("CJ_CSRF_DISABLED", "true").lower() == "true"
+
 # Create the main app
 app = FastAPI()
 init_db()
+
+# Simple CSRF protection middleware
+@app.middleware("http")
+async def csrf_middleware(request: Request, call_next):
+    if CSRF_DISABLED or request.method in ("GET", "OPTIONS", "HEAD"):
+        return await call_next(request)
+    token = request.headers.get("X-CSRF-Token")
+    if not token or token != CSRF_TOKEN:
+        return api_response(success=False, error="invalid_csrf_token")
+    return await call_next(request)
+
+@app.middleware("http")
+async def csrf_middleware(request: Request, call_next):
+    if CSRF_SECRET and request.method in {"POST", "PUT", "DELETE", "PATCH"}:
+        token = request.headers.get("X-CSRF-Token")
+        cookie = request.cookies.get("csrf_token")
+        if not token or token != cookie or not verify_csrf_token(token):
+            return api_response(None, success=False, error="CSRF validation failed")
+    response = await call_next(request)
+    return response
 
 # Simple in-memory job store for demo progress streaming
 jobs: Dict[str, Dict[str, Any]] = {}
@@ -188,6 +288,14 @@ async def handle_generic_exception(request: Request, exc: Exception):
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+@api_router.get("/csrf")
+async def get_csrf_token():
+    token = generate_csrf_token()
+    resp = api_response({"token": token})
+    if token:
+        resp.set_cookie("csrf_token", token, httponly=True)
+    return resp
+
 
 # Define Models
 class ParameterMapping(BaseModel):
@@ -239,6 +347,14 @@ class ImageOutputRecord(BaseModel):
 
 class GenerateRequest(BaseModel):
     prompt: constr(min_length=1, max_length=500)
+
+    """Request body for starting a generation job."""
+    prompt: str = Field(..., min_length=1, max_length=2000)
+
+    """Input model for the /generate endpoint."""
+    prompt: str = Field(..., min_length=1, max_length=1000)
+
+    prompt: str = Field(..., max_length=2000)
     workflow_id: Optional[str] = None
 
 
@@ -685,16 +801,33 @@ async def get_sample_workflows():
 @api_router.post("/generate")
 async def start_generation(
     data: GenerateRequest,
+
+
+    payload: GenerateRequest,
     background_tasks: BackgroundTasks = None,
     dbs: Session = Depends(get_sql_db),
     _csrf: None = Depends(csrf_protect),
 ):
     """Create a fake generation job and simulate progress."""
+    prompt = payload.prompt.strip()
+    workflow_id = payload.workflow_id
     job_id = str(uuid.uuid4())
     jobs[job_id] = {"status": "queued", "progress": 0, "prompt": data.prompt}
 
     # store prompt record
     prm = Prompt(id=job_id, text=data.prompt, workflow_id=data.workflow_id)
+
+
+    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": payload.prompt}
+
+    # store prompt record
+    prm = Prompt(id=job_id, text=prompt, workflow_id=workflow_id)
+
+    prm = Prompt(
+        id=job_id, text=data.prompt, workflow_id=data.workflow_id
+
+        id=job_id, text=payload.prompt, workflow_id=payload.workflow_id
+    )
     dbs.add(prm)
     dbs.commit()
 
@@ -730,6 +863,15 @@ async def get_progress(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return api_response(job)
+
+
+@api_router.post("/auth/refresh")
+async def refresh_token(Authorization: str = Header(...)):
+    """Return a new dummy token to simulate rotation."""
+    if not Authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="invalid_token")
+    new_token = str(uuid.uuid4())
+    return api_response({"access_token": new_token})
 
 
 @api_router.get("/progress/stream/{job_id}")
@@ -807,19 +949,39 @@ async def proxy_comfyui_queue():
 
 
 # --- Civitai API key management ---
+class CivitaiKey(BaseModel):
+    api_key: str = Field(..., min_length=1)
+
+
 @api_router.post("/civitai/key")
 async def set_civitai_key(
     data: Dict[str, str], _csrf: None = Depends(csrf_protect)
 ):
+
+async def set_civitai_key(key: CivitaiKey):
     """Store the Civitai API key encrypted in the database"""
     api_key = data.get("api_key")
     if not api_key:
         raise HTTPException(status_code=400, detail="api_key required")
+    await store_civitai_key(api_key)
+
+    api_key = key.api_key
     encrypted = fernet.encrypt(api_key.encode()).decode()
     await db.civitai_key.update_one(
         {"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True
     )
     os.environ["CIVITAI_API_KEY"] = api_key
+
+    await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
+    os.environ["CIVITAI_API_KEY"] = api_key
+
+    key_path = os.environ.get("CIVITAI_KEY_FILE")
+    if key_path:
+        try:
+            with open(key_path, "wb") as fh:
+                fh.write(encrypted.encode())
+        except Exception:
+            logging.exception("Failed to write Civitai key file")
     return api_response({"message": "API key saved"})
 
 
@@ -870,6 +1032,9 @@ async def run_cleanup(background_tasks: BackgroundTasks, days: int = CLEAN_DAYS)
 
 # Include the router in the main app
 app.include_router(api_router)
+
+# Add CSRF protection
+app.add_middleware(CSRFMiddleware, cookie_secure=not DEBUG_MODE)
 
 # Set up CORS
 app.add_middleware(

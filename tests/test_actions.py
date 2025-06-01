@@ -5,6 +5,7 @@ import sys
 import types
 
 os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+os.environ["DISABLE_CSRF"] = "true"
 
 # Stub motor to avoid dependency on MongoDB driver
 motor_module = types.ModuleType("motor")

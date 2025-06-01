@@ -175,6 +175,26 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         }
     })
 
+
+@auth_router.post("/refresh", response_model=Token)
+async def refresh_access_token(current_user: UserInDB = Depends(get_current_active_user)):
+    """Issue a new JWT for the authenticated user."""
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    new_token = create_access_token(
+        data={"sub": current_user.username}, expires_delta=access_token_expires
+    )
+    return api_response(
+        {
+            "access_token": new_token,
+            "token_type": "bearer",
+            "user": {
+                "id": current_user.id,
+                "username": current_user.username,
+                "name": current_user.name,
+            },
+        }
+    )
+
 @auth_router.get("/me", response_model=UserPublic)
 async def read_users_me(current_user: UserInDB = Depends(get_current_active_user)):
     return api_response(UserPublic(
