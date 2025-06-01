@@ -10,7 +10,7 @@
 
 [DONE] Connect the frontend Workflow Manager UI to this backend so that users can upload, edit, delete, and assign workflows to action slots, including dynamic parameter support per action.
 
-[PARTIAL] Connect the frontend Workflow Manager UI to this backend so that users can upload, edit, delete, and assign workflows to action slots, including dynamic parameter support per action.
+[DONE] Connect the frontend Workflow Manager UI to this backend so that users can upload, edit, delete, and assign workflows to action slots, including dynamic parameter support per action.
 
 [DONE] Develop a prompt-parsing engine that recognizes shortcodes like "--ar 16:9" or "--style vivid", parses them reliably, and maps them to specific node parameter updates in one or more workflows.
 
@@ -27,7 +27,7 @@
 
 [DONE] Connect Explore-page images to the prompt system by enabling one-click "generate from this prompt" which pushes the selected prompt directly into the generation input bar.
 
-[DONE] Implement throttling and caching when interacting with the Civitai API to respect their rate limits and usage guidelines.
+[DONE-2] Implement throttling and caching when interacting with the Civitai API to respect their rate limits and usage guidelines.
 
 [PARTIAL] Build a responsive UI experience modeled after Midjourney, including keyboard shortcuts (e.g. `/` to focus prompt bar, ↑↓ to navigate history) and drag-and-drop image support to trigger img2img workflows.
 
@@ -41,9 +41,9 @@
 
 [DONE] Store all user-submitted prompts, workflows, image outputs, parameters, and actions in a persistent SQL database with relational consistency and auditing.
 
-[DONE] Log every ComfyUI backend call with full JSON request, response, status, timestamps, and runtime so performance can be debugged and replayed.
+[DONE-2] Log every ComfyUI backend call with full JSON request, response, status, timestamps, and runtime so performance can be debugged and replayed.
 
-[PARTIAL] Provide background cleanup and data maintenance tools for thumbnails, temp files, disk quotas, and expired image outputs to keep storage usage optimal, but keep generation jobs and images persistent in create page.
+[DONE] Provide background cleanup and data maintenance tools for thumbnails, temp files, disk quotas, and expired image outputs to keep storage usage optimal, but keep generation jobs and images persistent in create page.
 
 Apply security best practices including CSRF protection, JWT session rotation, and input validation on all form-based or prompt data.
 

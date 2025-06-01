@@ -11,6 +11,9 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from .utils import api_response, DEBUG_MODE
+from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
+
+from .utils import api_response, DEBUG_MODE, log_backend_call
 from .external_integrations.civitai import civitai_get
 
 from .external_integrations.civitai import fetch_json as civitai_fetch
@@ -116,6 +119,11 @@ if not os.environ.get("CIVITAI_API_KEY"):
     except Exception:
         pass
 
+# Cleanup configuration
+CLEAN_PATHS = os.environ.get("CJ_CLEAN_PATHS", "").split(":")
+CLEAN_DAYS = int(os.environ.get("CJ_CLEAN_DAYS", "7"))
+CLEAN_INTERVAL = int(os.environ.get("CJ_CLEAN_INTERVAL", "0"))
+
 # Create the main app
 app = FastAPI()
 init_db()
@@ -123,6 +131,18 @@ init_db()
 # Simple in-memory job store for demo progress streaming
 jobs: Dict[str, Dict[str, Any]] = {}
 action_store: Dict[str, Dict[str, Any]] = {}
+
+
+async def _cleanup_worker() -> None:
+    """Periodically clean temporary files based on environment settings."""
+    if CLEAN_INTERVAL <= 0:
+        return
+    while True:
+        try:
+            cleanup_task(CLEAN_PATHS, CLEAN_DAYS)
+        except Exception as exc:  # pragma: no cover - log but continue
+            logging.exception("Cleanup failed: %s", exc)
+        await asyncio.sleep(CLEAN_INTERVAL)
 
 
 def get_sql_db():
@@ -727,22 +747,31 @@ async def websocket_progress(websocket: WebSocket, job_id: str):
 @api_router.post("/comfyui/prompt")
 async def proxy_comfyui_prompt(payload: Dict[str, Any]):
     """Proxy prompt submission to the ComfyUI backend"""
+    start = datetime.utcnow().timestamp()
     resp = requests.post(f"{COMFYUI_BASE_URL}/prompt", json=payload)
-    return api_response(resp.json())
+    data = resp.json()
+    log_backend_call("POST", f"{COMFYUI_BASE_URL}/prompt", payload, data, resp.status_code, start)
+    return api_response(data)
 
 
 @api_router.get("/comfyui/history")
 async def proxy_comfyui_history():
     """Proxy generation history from ComfyUI"""
+    start = datetime.utcnow().timestamp()
     resp = requests.get(f"{COMFYUI_BASE_URL}/history")
-    return api_response(resp.json())
+    data = resp.json()
+    log_backend_call("GET", f"{COMFYUI_BASE_URL}/history", None, data, resp.status_code, start)
+    return api_response(data)
 
 
 @api_router.get("/comfyui/queue")
 async def proxy_comfyui_queue():
     """Proxy queue state from ComfyUI"""
+    start = datetime.utcnow().timestamp()
     resp = requests.get(f"{COMFYUI_BASE_URL}/queue")
-    return api_response(resp.json())
+    data = resp.json()
+    log_backend_call("GET", f"{COMFYUI_BASE_URL}/queue", None, data, resp.status_code, start)
+    return api_response(data)
 
 
 # --- Civitai API key management ---
@@ -776,7 +805,7 @@ async def civitai_proxy(path: str, request: Request):
     """Proxy GET requests to the Civitai API with caching and throttling."""
     params = dict(request.query_params)
     try:
-        data = civitai_get(f"/{path}", params)
+        data = await civitai_get(f"/{path}", params)
     except requests.RequestException as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
@@ -809,10 +838,9 @@ async def civitai_models(limit: int = 20, page: int = 1, query: str | None = Non
 
 
 @api_router.post("/maintenance/cleanup")
-async def run_cleanup(background_tasks: BackgroundTasks, days: int = 7):
+async def run_cleanup(background_tasks: BackgroundTasks, days: int = CLEAN_DAYS):
     """Trigger background cleanup of temporary files."""
-    paths = os.environ.get("CJ_CLEAN_PATHS", "").split(":")
-    background_tasks.add_task(cleanup_task, paths, days)
+    background_tasks.add_task(cleanup_task, CLEAN_PATHS, days)
     return api_response({"message": "Cleanup started"})
 
 
@@ -832,6 +860,13 @@ app.add_middleware(
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
+
+
+@app.on_event("startup")
+async def startup_tasks() -> None:
+    """Launch background maintenance tasks."""
+    if CLEAN_INTERVAL > 0:
+        asyncio.create_task(_cleanup_worker())
 
 
 @app.on_event("shutdown")
