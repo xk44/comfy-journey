@@ -115,6 +115,7 @@ init_db()
 
 # Simple in-memory job store for demo progress streaming
 jobs: Dict[str, Dict[str, Any]] = {}
+action_store: Dict[str, Dict[str, Any]] = {}
 
 
 def get_sql_db():
@@ -253,12 +254,18 @@ async def delete_workflow_mapping(workflow_id: str):
 async def create_action_mapping(mapping: ActionMapping):
     mapping_dict = mapping.dict()
     mapping_dict["_id"] = mapping_dict["id"]
-    await db.action_mappings.insert_one(mapping_dict)
+    if hasattr(db, "action_mappings"):
+        await db.action_mappings.insert_one(mapping_dict)
+    else:
+        action_store[mapping_dict["id"]] = mapping_dict
     return api_response(mapping_dict)
 
 @api_router.get("/actions", response_model=List[ActionMapping])
 async def get_action_mappings():
-    mappings = await db.action_mappings.find().to_list(1000)
+    if hasattr(db, "action_mappings"):
+        mappings = await db.action_mappings.find().to_list(1000)
+    else:
+        mappings = list(action_store.values())
     for m in mappings:
         m["id"] = str(m.get("_id", m.get("id", "")))
         if "_id" in m:
@@ -270,12 +277,21 @@ async def update_action_mapping(action_id: str, mapping: ActionMapping):
     mapping_dict = mapping.dict()
     if "id" in mapping_dict:
         del mapping_dict["id"]
-    await db.action_mappings.update_one({"_id": action_id}, {"$set": mapping_dict})
+    if hasattr(db, "action_mappings"):
+        await db.action_mappings.update_one({"_id": action_id}, {"$set": mapping_dict})
+    else:
+        if action_id in action_store:
+            action_store[action_id].update(mapping_dict)
     return api_response({**mapping_dict, "id": action_id})
 
 @api_router.delete("/actions/{action_id}")
 async def delete_action_mapping(action_id: str):
     await db.action_mappings.delete_one({"_id": action_id})
+
+    if hasattr(db, "action_mappings"):
+        await db.action_mappings.delete_one({"_id": action_id})
+    else:
+        action_store.pop(action_id, None)
     return api_response({"message": "Action deleted"})
 
 # Relational Workflow Endpoints using SQLAlchemy
@@ -283,6 +299,27 @@ async def delete_action_mapping(action_id: str):
 async def create_rel_workflow(
     mapping: WorkflowMapping, dbs: Session = Depends(get_sql_db)
 ):
+    wf = Workflow(
+        id=mapping.id,
+        name=mapping.name,
+        description=mapping.description,
+        data=json.dumps(mapping.data or {}),
+    )
+    dbs.add(wf)
+    dbs.commit()
+    return api_response(mapping.dict())
+
+
+@api_router.post("/relational/workflows/upload", response_model=WorkflowMapping)
+async def upload_rel_workflow(
+    payload: Dict[str, Any], dbs: Session = Depends(get_sql_db)
+):
+    """Upload a workflow JSON payload and store it."""
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="data field required")
+    name = payload.get("name", f"workflow-{uuid.uuid4()}.json")
+    mapping = WorkflowMapping(name=name, data=data)
     wf = Workflow(
         id=mapping.id,
         name=mapping.name,
@@ -334,7 +371,7 @@ async def delete_rel_workflow(wf_id: str, dbs: Session = Depends(get_sql_db)):
 
 
 # ----- Action endpoints -----
-@api_router.post("/actions", response_model=ActionMapping)
+@api_router.post("/relational/actions", response_model=ActionMapping)
 async def create_action(mapping: ActionMapping, dbs: Session = Depends(get_sql_db)):
     action = Action(
         id=mapping.id,
@@ -348,7 +385,7 @@ async def create_action(mapping: ActionMapping, dbs: Session = Depends(get_sql_d
     return api_response(mapping.dict())
 
 
-@api_router.get("/actions", response_model=List[ActionMapping])
+@api_router.get("/relational/actions", response_model=List[ActionMapping])
 async def get_actions(dbs: Session = Depends(get_sql_db)):
     actions = dbs.query(Action).all()
     payload = [
@@ -364,7 +401,7 @@ async def get_actions(dbs: Session = Depends(get_sql_db)):
     return api_response(payload)
 
 
-@api_router.put("/actions/{action_id}", response_model=ActionMapping)
+@api_router.put("/relational/actions/{action_id}", response_model=ActionMapping)
 async def update_action(
     action_id: str, mapping: ActionMapping, dbs: Session = Depends(get_sql_db)
 ):
@@ -379,7 +416,7 @@ async def update_action(
     return api_response(mapping.dict())
 
 
-@api_router.delete("/actions/{action_id}")
+@api_router.delete("/relational/actions/{action_id}")
 async def delete_action(action_id: str, dbs: Session = Depends(get_sql_db)):
     action = dbs.query(Action).filter(Action.id == action_id).first()
     if not action:

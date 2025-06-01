@@ -16,7 +16,41 @@ class DummyClient:
         pass
 
     def get_database(self, name):
-        return types.SimpleNamespace()
+        class DummyCollection:
+            def __init__(self):
+                self.data = {}
+
+            async def insert_one(self, doc):
+                self.data[doc.get("_id")] = doc
+
+            def find(self):
+                class Cursor:
+                    def __init__(self, data):
+                        self.data = data
+
+                    async def to_list(self, limit):
+                        return list(self.data.values())
+
+                return Cursor(self.data)
+
+            async def update_one(self, filt, update, upsert=False):
+                _id = filt.get("_id")
+                doc = self.data.get(_id, {})
+                doc.update(update.get("$set", {}))
+                self.data[_id] = doc
+
+            async def delete_one(self, filt):
+                self.data.pop(filt.get("_id"), None)
+
+            async def find_one(self, filt):
+                return self.data.get(filt.get("_id"))
+
+        return types.SimpleNamespace(
+            parameter_mappings=DummyCollection(),
+            workflow_mappings=DummyCollection(),
+            action_mappings=DummyCollection(),
+            civitai_key=DummyCollection(),
+        )
 
 
 motor_asyncio.AsyncIOMotorClient = DummyClient
@@ -50,13 +84,13 @@ def test_action_crud():
         "workflow_id": workflow_id,
         "parameters": {"scale": 2},
     }
-    resp = client.post("/api/actions", json=action_data)
+    resp = client.post("/api/relational/actions", json=action_data)
     assert resp.status_code == 200
     payload = resp.json()["payload"]
     action_id = payload["id"]
     assert payload["button"] == "upscale"
 
-    resp = client.get("/api/actions")
+    resp = client.get("/api/relational/actions")
     assert resp.status_code == 200
     assert len(resp.json()["payload"]) == 1
 
@@ -67,10 +101,10 @@ def test_action_crud():
         "workflow_id": workflow_id,
         "parameters": {"amount": 1.5},
     }
-    resp = client.put(f"/api/actions/{action_id}", json=update)
+    resp = client.put(f"/api/relational/actions/{action_id}", json=update)
     assert resp.status_code == 200
     assert resp.json()["payload"]["button"] == "zoom"
 
-    resp = client.delete(f"/api/actions/{action_id}")
+    resp = client.delete(f"/api/relational/actions/{action_id}")
     assert resp.status_code == 200
-    assert resp.json()["payload"]["message"] == "Action deleted"
+    assert resp.json()["payload"]["message"] == "Action mapping deleted"
