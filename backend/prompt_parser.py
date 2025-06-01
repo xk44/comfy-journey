@@ -7,6 +7,8 @@ SHORTCODE_PATTERN = re.compile(r"--(?P<key>\w+)(?:[=\s]+(?P<value>(\"[^\"]*\"|'[
 
 
 def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
+    """Parse a prompt extracting shortcode parameters."""
+
     """Parse a prompt and extract shortcode parameters.
 
     Supports tokens of the form ``--key value`` or ``--key=value``. Values may
@@ -44,6 +46,9 @@ def parse_prompt(prompt: str) -> Tuple[str, Dict[str, str]]:
         else:
             remaining.append(token)
         i += 1
+
+    clean_prompt = " ".join(remaining_tokens)
+    clean_prompt = SHORTCODE_PATTERN.sub("", clean_prompt).strip()
 
     clean_prompt = " ".join(remaining).strip()
     return clean_prompt, params

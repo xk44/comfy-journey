@@ -1,6 +1,8 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Body, Depends, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from .utils import api_response, DEBUG_MODE
+from cryptography.fernet import Fernet
+import base64
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
@@ -24,6 +26,16 @@ db = client.get_database("comfyui_frontend")
 
 # Base URL for the ComfyUI backend
 COMFYUI_BASE_URL = os.environ.get("COMFYUI_BASE_URL", "http://localhost:8188")
+
+# Encryption setup for storing sensitive keys
+fernet_secret = os.environ.get("FERNET_SECRET")
+if not fernet_secret:
+    secret = os.environ.get("SECRET_KEY", "default-secret-key")
+    key_bytes = secret.encode()[:32]
+    if len(key_bytes) < 32:
+        key_bytes = key_bytes + b"0" * (32 - len(key_bytes))
+    fernet_secret = base64.urlsafe_b64encode(key_bytes).decode()
+fernet = Fernet(fernet_secret)
 
 # Create the main app
 app = FastAPI()
@@ -370,6 +382,25 @@ async def proxy_comfyui_queue():
     """Proxy queue state from ComfyUI"""
     resp = requests.get(f"{COMFYUI_BASE_URL}/queue")
     return api_response(resp.json())
+
+# --- Civitai API key management ---
+@api_router.post("/civitai/key")
+async def set_civitai_key(data: Dict[str, str]):
+    """Store the Civitai API key encrypted in the database"""
+    api_key = data.get("api_key")
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api_key required")
+    encrypted = fernet.encrypt(api_key.encode()).decode()
+    await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
+    return api_response({"message": "API key saved"})
+
+
+@api_router.get("/civitai/key")
+async def has_civitai_key():
+    """Check if a Civitai API key has been stored"""
+    record = await db.civitai_key.find_one({"_id": "global"})
+    return api_response({"key_set": bool(record)})
+
 
 # Include the router in the main app
 app.include_router(api_router)
