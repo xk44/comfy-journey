@@ -18,13 +18,14 @@ Connect the frontend Workflow Manager UI to this backend so that users can uploa
 
 [DONE] Provide visual autocomplete in the prompt bar for available parameters as users type, showing hints for each shortcode.
 
-[PARTIAL] Integrate with Civitai by allowing users to input and store their Civitai API key securely in the settings panel, encrypted and never exposed to the client or logs.
 
-Use the Civitai API to fetch and display images, prompts, and models in the Explore page, with lazy loading and infinite scrolling for browsing high volumes of results.
+[DONE] Integrate with Civitai by allowing users to input and store their Civitai API key securely in the settings panel, encrypted and never exposed to the client or logs.
+
+[DONE] Use the Civitai API to fetch and display images, prompts, and models in the Explore page, with lazy loading and infinite scrolling for browsing high volumes of results.
 
 [DONE] Connect Explore-page images to the prompt system by enabling one-click "generate from this prompt" which pushes the selected prompt directly into the generation input bar.
 
-Implement throttling and caching when interacting with the Civitai API to respect their rate limits and usage guidelines.
+[DONE] Implement throttling and caching when interacting with the Civitai API to respect their rate limits and usage guidelines.
 
 Build a responsive UI experience modeled after Midjourney, including keyboard shortcuts (e.g. `/` to focus prompt bar, ↑↓ to navigate history) and drag-and-drop image support to trigger img2img workflows.
 
