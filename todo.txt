@@ -14,9 +14,10 @@
 
 [DONE-2] Develop a prompt-parsing engine that recognizes shortcodes like "--ar 16:9" or "--style vivid", parses them reliably, and maps them to specific node parameter updates in one or more workflows.
 
-[DONE] Translate parsed shortcode tokens into structured JSON patch operations that directly modify the relevant parts of a workflow before submission.
 
-[DONE] Support parameter definitions in the UI (such as code, node, parameter, value template) so users can define new shortcodes and dynamically map them to backend nodes.
+[DONE-2] Translate parsed shortcode tokens into structured JSON patch operations that directly modify the relevant parts of a workflow before submission.
+
+[DONE-2] Support parameter definitions in the UI (such as code, node, parameter, value template) so users can define new shortcodes and dynamically map them to backend nodes.
 
 [DONE-2] Provide visual autocomplete in the prompt bar for available parameters as users type, showing hints for each shortcode.
 
