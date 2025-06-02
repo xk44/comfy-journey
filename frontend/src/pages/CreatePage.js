@@ -135,7 +135,7 @@ const CreatePage = () => {
       const query = match[1];
       const filtered = parameterMappings
         .filter((m) => m.code.startsWith(`--${query}`))
-        .map((m) => m.code);
+        .map((m) => ({ code: m.code, description: m.description || '' }));
       setSuggestions(filtered);
       setShowSuggestions(filtered.length > 0);
     } else {
@@ -272,8 +272,11 @@ const CreatePage = () => {
           {showSuggestions && (
             <ul className="prompt-suggestions">
               {suggestions.map((s) => (
-                <li key={s} onMouseDown={() => handleSuggestionClick(s)}>
-                  {s}
+                <li key={s.code} onMouseDown={() => handleSuggestionClick(s.code)}>
+                  <span className="suggestion-code">{s.code}</span>
+                  {s.description && (
+                    <span className="suggestion-desc">{s.description}</span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -341,6 +344,14 @@ const CreatePage = () => {
                     {`${key}: ${value}`}
                   </span>
                 ))}
+              </div>
+              <div className="image-toolbar">
+                <button className="image-action" title="Upscale">
+                  ⤒
+                </button>
+                <button className="image-action" title="Zoom">
+                  🔍
+                </button>
               </div>
             </div>
           </div>
