@@ -18,6 +18,26 @@ class PromptParserTests(unittest.TestCase):
         self.assertEqual(patches[0]["path"], "/nodes/1/properties/aspect_ratio")
         self.assertEqual(patches[0]["value"], "16:9")
 
+    def test_custom_path_and_op(self):
+        tokens = {"scale": "2"}
+        mappings = [
+            {
+                "code": "--scale",
+                "node_id": "10",
+                "param_name": "scale",
+                "path_template": "/nodes/{node_id}/inputs/{param_name}",
+                "op": "add",
+            }
+        ]
+        patches = tokens_to_patch(tokens, mappings)
+        self.assertEqual(patches, [
+            {
+                "op": "add",
+                "path": "/nodes/10/inputs/scale",
+                "value": "2",
+            }
+        ])
+
     def test_parse_quoted_and_equals(self):
         prompt = 'A cat --ar=1:1 --style "comic book"'
         clean, tokens = parse_prompt(prompt)

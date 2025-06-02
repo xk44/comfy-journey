@@ -55,19 +55,31 @@ def tokens_to_patch(
 
     Each mapping defines a ``code`` like ``--ar`` and the target node/parameter in
     a workflow. ``value_template`` can be used to format the value before it is
-    inserted in the patch operation.
+    inserted in the patch operation. ``path_template`` and ``op`` allow advanced
+    customization of the generated JSON patches.
     """
+
     patch_ops: List[Dict[str, Any]] = []
     mapping_lookup = {m["code"].lstrip("-"): m for m in mappings}
     for code, value in tokens.items():
         mapping = mapping_lookup.get(code)
         if not mapping:
             continue
+
         template = mapping.get("value_template", "{value}")
+        op = mapping.get("op", "replace")
+        path_template = mapping.get(
+            "path_template", "/nodes/{node_id}/properties/{param_name}"
+        )
+        try:
+            path = path_template.format(**mapping)
+        except KeyError:
+            path = f"/nodes/{mapping['node_id']}/properties/{mapping['param_name']}"
+
         patch_ops.append(
             {
-                "op": "replace",
-                "path": f"/nodes/{mapping['node_id']}/properties/{mapping['param_name']}",
+                "op": op,
+                "path": path,
                 "value": template.format(value=value),
             }
         )
