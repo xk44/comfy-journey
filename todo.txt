@@ -12,13 +12,13 @@
 
 [DONE-2] Connect the frontend Workflow Manager UI to this backend so that users can upload, edit, delete, and assign workflows to action slots, including dynamic parameter support per action.
 
-[DONE] Develop a prompt-parsing engine that recognizes shortcodes like "--ar 16:9" or "--style vivid", parses them reliably, and maps them to specific node parameter updates in one or more workflows.
+[DONE-2] Develop a prompt-parsing engine that recognizes shortcodes like "--ar 16:9" or "--style vivid", parses them reliably, and maps them to specific node parameter updates in one or more workflows.
 
 [DONE] Translate parsed shortcode tokens into structured JSON patch operations that directly modify the relevant parts of a workflow before submission.
 
 [DONE] Support parameter definitions in the UI (such as code, node, parameter, value template) so users can define new shortcodes and dynamically map them to backend nodes.
 
-[DONE] Provide visual autocomplete in the prompt bar for available parameters as users type, showing hints for each shortcode.
+[DONE-2] Provide visual autocomplete in the prompt bar for available parameters as users type, showing hints for each shortcode.
 
 [DONE-2] Integrate with Civitai by allowing users to input and store their Civitai API key securely in the settings panel, encrypted and never exposed to the client or logs.
 
@@ -32,7 +32,7 @@
 
 [DONE] Display generation progress using toast notifications or overlays that show job status transitions (queued → generating → done or error) with unique job IDs.
 
-[DONE] Add hover-activated image toolbars to each image tile in the gallery or Create page that provide quick access to mapped actions like upscale or zoom.
+[DONE-2] Add hover-activated image toolbars to each image tile in the gallery or Create page that provide quick access to mapped actions like upscale or zoom.
 
 [DONE] Support theme switching (dark/light) stored in local storage and toggled via the settings panel.
 

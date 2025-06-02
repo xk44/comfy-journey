@@ -52,23 +52,28 @@ const parseParameterCodes = (prompt, parameterMappings) => {
     return { cleanPrompt: prompt, parameters: {} };
   }
 
-  const paramCodeRegex = /\s--([a-zA-Z_]+)\s+([^ ]+)/g;
+  const paramCodeRegex = /--([a-zA-Z_]+)(?:[=\s]+(\"[^\"]*\"|'[^']*'|[^-\s]+))?/g;
   let match;
   const parameters = {};
   let cleanPrompt = prompt;
 
   while ((match = paramCodeRegex.exec(prompt)) !== null) {
-    const [fullMatch, code, value] = match;
+    const [fullMatch, code, rawValue] = match;
     const mapping = parameterMappings.find(p => p.code === `--${code}`);
-    
+
     if (mapping) {
+      let value = rawValue !== undefined ? rawValue.trim() : 'true';
+      if ((value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+
       parameters[mapping.node_id] = {
-        ...parameters[mapping.node_id] || {},
+        ...(parameters[mapping.node_id] || {}),
         [mapping.param_name]: processValueTemplate(mapping.value_template, value)
       };
-      
-      // Remove the parameter from the prompt
-      cleanPrompt = cleanPrompt.replace(fullMatch, '');
+
+      cleanPrompt = cleanPrompt.replace(fullMatch, '').trim();
     }
   }
 

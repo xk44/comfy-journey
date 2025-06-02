@@ -278,6 +278,18 @@ button:disabled {
 .prompt-suggestions li {
   padding: 4px 8px;
   cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.prompt-suggestions .suggestion-code {
+  font-weight: bold;
+}
+
+.prompt-suggestions .suggestion-desc {
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .prompt-suggestions li:hover {
@@ -453,6 +465,24 @@ button:disabled {
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 12px;
+}
+
+.image-toolbar {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+}
+
+.image-action {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.image-action:hover {
+  color: var(--accent-color);
 }
 
 .loading-spinner {
