@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import usePromptHistory from '../hooks/usePromptHistory';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 import parameterService from '../services/parameterService';
@@ -14,8 +15,14 @@ const CreatePage = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [parameterMappings, setParameterMappings] = useState([]);
-  const [promptHistory, setPromptHistory] = useState([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
+  const {
+    history: promptHistory,
+    index: historyIndex,
+    addPrompt,
+    previous: prevPrompt,
+    next: nextPrompt,
+    resetNavigation,
+  } = usePromptHistory();
 
   const { currentUser } = useAuth();
 
@@ -35,26 +42,17 @@ const CreatePage = () => {
         inputRef.current?.focus();
       } else if (e.key === 'ArrowUp' && document.activeElement === inputRef.current) {
         e.preventDefault();
-        if (promptHistory.length === 0) return;
-        const idx = historyIndex < 0 ? promptHistory.length - 1 : Math.max(historyIndex - 1, 0);
-        setHistoryIndex(idx);
-        setPrompt(promptHistory[idx] || '');
+        const prev = prevPrompt();
+        if (prev !== null) setPrompt(prev);
       } else if (e.key === 'ArrowDown' && document.activeElement === inputRef.current) {
         e.preventDefault();
-        if (promptHistory.length === 0) return;
-        let idx = historyIndex + 1;
-        if (idx >= promptHistory.length) {
-          setHistoryIndex(promptHistory.length);
-          setPrompt('');
-        } else {
-          setHistoryIndex(idx);
-          setPrompt(promptHistory[idx] || '');
-        }
+        const nxt = nextPrompt();
+        setPrompt(nxt);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [promptHistory, historyIndex]);
+  }, [prevPrompt, nextPrompt]);
 
   // Categories for the tabs
   const categories = ['Random', 'Hot', 'Top Month', 'Likes'];
@@ -160,8 +158,8 @@ const CreatePage = () => {
       return;
     }
 
-    setPromptHistory((prev) => [...prev, prompt]);
-    setHistoryIndex(-1);
+    addPrompt(prompt);
+    resetNavigation();
 
     try {
       setLoading(true);
