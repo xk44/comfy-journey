@@ -36,7 +36,7 @@
 
 [DONE] Support theme switching (dark/light) stored in local storage and toggled via the settings panel.
 
-[DONE] Implement a full-featured image editing page that supports mask painting (erase/restore), brush size control, undo, and layered edits, and allows users to submit the edited image directly to workflows like inpaint or outpaint.
+[DONE-2] Implement a full-featured image editing page that supports mask painting (erase/restore), brush size control, undo, and layered edits, and allows users to submit the edited image directly to workflows like inpaint or outpaint.
 
 [DONE] Store all user-submitted prompts, workflows, image outputs, parameters, and actions in a persistent SQL database with relational consistency and auditing.
 
