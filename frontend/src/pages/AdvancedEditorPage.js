@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AdvancedEditor from '../components/AdvancedEditor';
 import Toast from '../components/Toast';
+import workflowService from '../services/workflowService';
+import progressService from '../services/progressService';
 
 const AdvancedEditorPage = () => {
   const [image, setImage] = useState(null);
@@ -40,17 +42,32 @@ const AdvancedEditorPage = () => {
     showToast('Image saved successfully!', 'success');
   };
 
-  const handleGenerateInpaint = (newPrompt, maskUrl) => {
+  const handleGenerateInpaint = async (newPrompt, maskUrl) => {
     setPrompt(newPrompt);
-    
-    if (maskUrl) {
-      // Inpainting logic would go here
+
+    if (!maskUrl) return;
+
+    try {
       showToast('Inpainting request sent!', 'info');
-      
-      // Mock response delay
-      setTimeout(() => {
-        showToast('Inpainting completed successfully!', 'success');
-      }, 2000);
+      const res = await workflowService.executeWorkflow(
+        null,
+        newPrompt,
+        { init_image: image.url, mask: maskUrl }
+      );
+      const jobId = res?.payload?.job_id;
+      if (!jobId) {
+        showToast('Failed to start inpainting', 'error');
+        return;
+      }
+      progressService.subscribe(jobId, (data) => {
+        const job = data.payload?.job;
+        if (job && job.status === 'done') {
+          showToast('Inpainting completed successfully!', 'success');
+        }
+      });
+    } catch (err) {
+      console.error('Inpainting error', err);
+      showToast('Inpainting failed', 'error');
     }
   };
 

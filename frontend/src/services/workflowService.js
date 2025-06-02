@@ -72,11 +72,14 @@ const getComfyUIStatus = async () => {
 // Execute a workflow
 const executeWorkflow = async (workflowId, prompt, parameters = {}) => {
   try {
-    // Current backend expects only a prompt payload. Include workflow/parameters
-    // once the API supports them.
+    const payload = { prompt };
+    if (workflowId) payload.workflow_id = workflowId;
+    if (parameters && Object.keys(parameters).length > 0) {
+      Object.assign(payload, parameters);
+    }
     const response = await authService.authAxios.post(
       `${API_URL}/api/generate`,
-      { prompt }
+      payload
     );
     return response.data;
   } catch (error) {
