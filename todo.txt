@@ -31,7 +31,7 @@
 
 [DONE] Build a responsive UI experience modeled after Midjourney, including keyboard shortcuts (e.g. `/` to focus prompt bar, ↑↓ to navigate history) and drag-and-drop image support to trigger img2img workflows.
 
-[DONE] Display generation progress using toast notifications or overlays that show job status transitions (queued → generating → done or error) with unique job IDs.
+[DONE-2] Display generation progress using toast notifications or overlays that show job status transitions (queued → generating → done or error) with unique job IDs.
 
 [DONE-2] Add hover-activated image toolbars to each image tile in the gallery or Create page that provide quick access to mapped actions like upscale or zoom.
 

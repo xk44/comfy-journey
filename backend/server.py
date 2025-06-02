@@ -8,7 +8,7 @@ import os
 import types
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, AsyncIterator
 
 import requests
 from cryptography.fernet import Fernet
@@ -414,6 +414,28 @@ async def websocket_progress(ws: WebSocket, job_id: str):
         pass
     finally:
         ws_clients[job_id].discard(ws)
+
+
+@api_router.get("/progress/stream/{job_id}")
+async def progress_stream(request: Request, job_id: str):
+    """Stream progress updates via Server-Sent Events."""
+
+    async def event_generator() -> AsyncIterator[str]:
+        while True:
+            job = jobs.get(job_id)
+            if not job:
+                yield f"data: {json.dumps({'event': 'end', 'error': 'job_not_found'})}\n\n"
+                break
+            queue_size = sum(1 for j in jobs.values() if j['status'] != 'done')
+            payload = json.dumps({'job': job, 'queue_size': queue_size})
+            yield f"data: {payload}\n\n"
+            if job['status'] == 'done':
+                break
+            await asyncio.sleep(0.1)
+            if await request.is_disconnected():
+                break
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 # ---------------------------------------------------------------------------

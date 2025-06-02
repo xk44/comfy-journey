@@ -70,3 +70,21 @@ def test_websocket_progress():
             msg = ws.receive_json()
         assert msg["job"]["status"] == "done"
 
+
+def test_sse_progress():
+    resp = client.post("/api/generate", json={"prompt": "sse"})
+    assert resp.status_code == 200
+    job_id = resp.json()["payload"]["job_id"]
+
+    with client.stream("GET", f"/api/progress/stream/{job_id}") as stream:
+        statuses = []
+        for chunk in stream.iter_lines():
+            if not chunk:
+                continue
+            assert chunk.startswith("data: ")
+            data = json.loads(chunk[6:])
+            statuses.append(data["job"]["status"])
+            if data["job"]["status"] == "done":
+                break
+        assert "done" in statuses
+
