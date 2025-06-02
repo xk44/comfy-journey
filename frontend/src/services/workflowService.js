@@ -17,7 +17,7 @@ const getComfyUIWorkflows = async () => {
 // Get all workflow mappings
 const getWorkflows = async () => {
   try {
-    const response = await authService.authAxios.get(`${API_URL}/api/workflows`);
+    const response = await authService.authAxios.get(`${API_URL}/api/relational/workflows`);
     return response.data;
   } catch (error) {
     console.error('Error getting workflow mappings:', error);
@@ -28,7 +28,7 @@ const getWorkflows = async () => {
 // Create a workflow mapping
 const createWorkflow = async (workflow) => {
   try {
-    const response = await authService.authAxios.post(`${API_URL}/api/workflows`, workflow);
+    const response = await authService.authAxios.post(`${API_URL}/api/relational/workflows`, workflow);
     return response.data;
   } catch (error) {
     console.error('Error creating workflow mapping:', error);
@@ -39,7 +39,7 @@ const createWorkflow = async (workflow) => {
 // Update a workflow mapping
 const updateWorkflow = async (id, workflow) => {
   try {
-    const response = await authService.authAxios.put(`${API_URL}/api/workflows/${id}`, workflow);
+    const response = await authService.authAxios.put(`${API_URL}/api/relational/workflows/${id}`, workflow);
     return response.data;
   } catch (error) {
     console.error('Error updating workflow mapping:', error);
@@ -50,7 +50,7 @@ const updateWorkflow = async (id, workflow) => {
 // Delete a workflow mapping
 const deleteWorkflow = async (id) => {
   try {
-    const response = await authService.authAxios.delete(`${API_URL}/api/workflows/${id}`);
+    const response = await authService.authAxios.delete(`${API_URL}/api/relational/workflows/${id}`);
     return response.data;
   } catch (error) {
     console.error('Error deleting workflow mapping:', error);
@@ -109,8 +109,12 @@ const streamProgress = (jobId, onUpdate) => {
 // Get custom actions for a workflow
 const getCustomActions = async (workflowId) => {
   try {
-    const response = await authService.authAxios.get(`${API_URL}/api/workflows/${workflowId}/actions`);
-    return response.data;
+    const response = await authService.authAxios.get(`${API_URL}/api/relational/actions`);
+    const data = response.data?.payload || response.data;
+    if (workflowId) {
+      return data.filter(a => a.workflow_id === workflowId);
+    }
+    return data;
   } catch (error) {
     console.error('Error getting custom actions:', error);
     return [];
@@ -120,8 +124,15 @@ const getCustomActions = async (workflowId) => {
 // Save custom actions for a workflow
 const saveCustomActions = async (workflowId, actions) => {
   try {
-    const response = await authService.authAxios.post(`${API_URL}/api/workflows/${workflowId}/actions`, { actions });
-    return response.data;
+    // Bulk save not supported; create/update individually
+    const promises = actions.map(act => {
+      if (act.id) {
+        return authService.authAxios.put(`${API_URL}/api/relational/actions/${act.id}`, act);
+      }
+      return authService.authAxios.post(`${API_URL}/api/relational/actions`, act);
+    });
+    const resp = await Promise.all(promises);
+    return resp.map(r => r.data);
   } catch (error) {
     console.error('Error saving custom actions:', error);
     throw error;
