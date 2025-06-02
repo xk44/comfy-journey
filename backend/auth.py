@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status, APIRouter
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pydantic import BaseModel
+from pydantic import BaseModel, constr
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -42,9 +42,9 @@ class TokenData(BaseModel):
     scopes: List[str] = []
 
 class UserCreate(BaseModel):
-    username: str
-    password: str
-    name: str
+    username: constr(min_length=3, max_length=50)
+    password: constr(min_length=6)
+    name: constr(min_length=1, max_length=100)
 
 class UserInDB(BaseModel):
     id: str
