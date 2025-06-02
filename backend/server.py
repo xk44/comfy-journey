@@ -192,6 +192,8 @@ class ActionMapping(BaseModel):
 class GenerateRequest(BaseModel):
     prompt: constr(min_length=1, max_length=2000)
     workflow_id: Optional[str] = None
+    init_image: Optional[str] = None
+    mask: Optional[str] = None
 
 
 class CivitaiKey(BaseModel):
@@ -360,7 +362,13 @@ async def start_generation(payload: GenerateRequest, background_tasks: Backgroun
     prompt = payload.prompt.strip()
     workflow_id = payload.workflow_id
     job_id = str(uuid.uuid4())
-    jobs[job_id] = {"status": "queued", "progress": 0, "prompt": prompt}
+    jobs[job_id] = {
+        "status": "queued",
+        "progress": 0,
+        "prompt": prompt,
+        "init_image": payload.init_image,
+        "mask": payload.mask,
+    }
 
     prm = Prompt(id=job_id, text=prompt, workflow_id=workflow_id)
     dbs.add(prm)

@@ -12,6 +12,7 @@ const AdvancedEditor = ({
 }) => {
   const [tool, setTool] = useState('brush');
   const [lines, setLines] = useState([]);
+  const [undoStack, setUndoStack] = useState([]);
   const [brushSize, setBrushSize] = useState(20);
   const [color, setColor] = useState('#000000');
   const [eraseMode, setEraseMode] = useState(false);
@@ -32,7 +33,7 @@ const AdvancedEditor = ({
   const [cropRect, setCropRect] = useState(null);
   const [showColorPanel, setShowColorPanel] = useState(false);
   const [filter, setFilter] = useState('none');
-  
+
   // Refs
   const isDrawing = useRef(false);
   const stageRef = useRef(null);
@@ -76,19 +77,31 @@ const AdvancedEditor = ({
       transformerRef.current.getLayer().batchDraw();
     }
   }, [cropMode, cropRect]);
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        handleUndo();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [undoStack]);
    
   // Handle mouse down 
-  const handleMouseDown = (e) => { 
+  const handleMouseDown = (e) => {
     if (cropMode) {
       return; // Don't handle mouse events in crop mode
     }
 
-    if (tool === 'select') { 
-      const pos = e.target.getStage().getPointerPosition(); 
-      setSelectionStart({ 
-        x: (pos.x - position.x) / scale, 
-        y: (pos.y - position.y) / scale 
-      }); 
+    if (tool === 'select') {
+      setUndoStack((prev) => [...prev, { lines: [...lines], selectionRect }]);
+      const pos = e.target.getStage().getPointerPosition();
+      setSelectionStart({
+        x: (pos.x - position.x) / scale,
+        y: (pos.y - position.y) / scale
+      });
       setSelectionRect({ 
         x: (pos.x - position.x) / scale, 
         y: (pos.y - position.y) / scale, 
@@ -98,7 +111,8 @@ const AdvancedEditor = ({
       return; 
     } 
      
-    isDrawing.current = true; 
+    setUndoStack((prev) => [...prev, { lines: [...lines], selectionRect }]);
+    isDrawing.current = true;
     const pos = e.target.getStage().getPointerPosition(); 
      
     if (tool === 'brush' || tool === 'eraser') { 
@@ -154,10 +168,18 @@ const AdvancedEditor = ({
   }; 
    
   // Clear the mask 
-  const clearMask = () => { 
-    setLines([]); 
-    setSelectionRect(null); 
-  }; 
+const clearMask = () => {
+  setLines([]);
+  setSelectionRect(null);
+};
+
+  const handleUndo = () => {
+    if (undoStack.length === 0) return;
+    const last = undoStack[undoStack.length - 1];
+    setLines(last.lines);
+    setSelectionRect(last.selectionRect);
+    setUndoStack((prev) => prev.slice(0, -1));
+  };
    
   // Handle zoom 
   const handleWheel = (e) => { 
@@ -509,6 +531,13 @@ const AdvancedEditor = ({
         </div>
         
         <div className="advanced-editor-toolbar-group">
+          <button
+            className="advanced-editor-btn"
+            onClick={handleUndo}
+            title="Undo"
+          >
+            Undo
+          </button>
           <button
             className="advanced-editor-btn"
             onClick={clearMask}
