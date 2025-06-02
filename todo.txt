@@ -20,7 +20,7 @@
 
 [DONE] Provide visual autocomplete in the prompt bar for available parameters as users type, showing hints for each shortcode.
 
-[DONE] Integrate with Civitai by allowing users to input and store their Civitai API key securely in the settings panel, encrypted and never exposed to the client or logs.
+[DONE-2] Integrate with Civitai by allowing users to input and store their Civitai API key securely in the settings panel, encrypted and never exposed to the client or logs.
 
 [DONE] Use the Civitai API to fetch and display images, prompts, and models in the Explore page, with lazy loading and infinite scrolling for browsing high volumes of results.
 
