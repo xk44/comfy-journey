@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Toast from '../components/Toast';
+import ImageDropZone from '../components/ImageDropZone';
 
 const EditorPage = () => {
   const [image, setImage] = useState(null);
@@ -16,9 +17,60 @@ const EditorPage = () => {
   const canvasRef = useRef(null);
   const maskRef = useRef(null);
   const isDrawing = useRef(false);
+  const fileInputRef = useRef(null);
   
   const location = useLocation();
   const navigate = useNavigate();
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageData = {
+        id: `upload-${Date.now()}`,
+        url: event.target?.result,
+        file: file,
+      };
+      setImage(imageData);
+    };
+    reader.readAsDataURL(file);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleImageDrop = (imageData) => {
+    if (!imageData) return;
+    setImage(imageData);
+  };
+
+  const handlePageDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handlePageDrop = (e) => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const imageData = {
+          id: `drop-${Date.now()}`,
+          url: event.target?.result,
+          file: file,
+        };
+        setImage(imageData);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   useEffect(() => {
     if (location.state?.image) {
@@ -198,22 +250,36 @@ const EditorPage = () => {
 
   if (!image) {
     return (
-      <div className="editor-page">
+      <div
+        className="editor-page"
+        onDragOver={handlePageDragOver}
+        onDrop={handlePageDrop}
+      >
         <div className="empty-state">
           <h2>No Image Selected</h2>
-          <p>Please select an image to edit from the Gallery or Create page.</p>
+          <p>Upload or drop an image to start editing.</p>
+          <div className="dropzone-container">
+            <ImageDropZone
+              onImageDrop={handleImageDrop}
+              onUploadClick={handleUploadClick}
+            />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="editor-page">
+    <div
+      className="editor-page"
+      onDragOver={handlePageDragOver}
+      onDrop={handlePageDrop}
+    >
       {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={clearToast} 
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={clearToast}
         />
       )}
       
@@ -257,6 +323,23 @@ const EditorPage = () => {
               </svg>
               Undo
             </button>
+            <button
+              className="tool-button"
+              onClick={handleUploadClick}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="20" height="20">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 9.75l7.5-7.5 7.5 7.5M12 2.25v15.75" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18" />
+              </svg>
+              Upload
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              accept="image/*"
+              onChange={handleFileUpload}
+            />
           </div>
         </div>
         
