@@ -7,6 +7,7 @@ import json
 import os
 import time
 from typing import Any, Dict, Optional, Tuple
+import hashlib
 
 import httpx
 
@@ -20,11 +21,15 @@ _CACHE: Dict[str, Tuple[float, Any]] = {}
 _last_request_time = 0.0
 
 
-def _cache_key(path: str, params: Optional[Dict[str, Any]]) -> str:
-    """Return a deterministic cache key for the request."""
-    if not params:
-        return path
-    return f"{path}?{json.dumps(params, sort_keys=True, separators=(',', ':'))}"
+def _cache_key(path: str, params: Optional[Dict[str, Any]], api_key: Optional[str]) -> str:
+    """Return a deterministic cache key for the request including API key."""
+    parts = [path]
+    if params:
+        parts.append(json.dumps(params, sort_keys=True, separators=(',', ':')))
+    if api_key:
+        digest = hashlib.sha256(api_key.encode()).hexdigest()[:8]
+        parts.append(digest)
+    return "?".join(parts)
 
 
 async def fetch_json(
@@ -37,7 +42,7 @@ async def fetch_json(
 
     global _last_request_time
 
-    key = _cache_key(path, params)
+    key = _cache_key(path, params, api_key)
     now = time.monotonic()
 
     cached = _CACHE.get(key)
