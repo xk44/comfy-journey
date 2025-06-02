@@ -81,6 +81,71 @@ except Exception:  # pragma: no cover - fallback for tests
     )
 
 
+# Sample workflows used for demo and tests
+SAMPLE_WORKFLOWS = [
+    {
+        "id": "workflow1",
+        "name": "Basic Text to Image",
+        "description": "Simple text to image generation workflow",
+        "data": {
+            "nodes": {
+                "1": {
+                    "id": "1",
+                    "type": "text_encoder",
+                    "title": "Text Encoder",
+                    "properties": {
+                        "prompt": "A beautiful landscape",
+                        "width": 512,
+                        "height": 512,
+                        "steps": 20,
+                    },
+                },
+                "2": {
+                    "id": "2",
+                    "type": "sampler",
+                    "title": "Sampler",
+                    "properties": {
+                        "sampler_name": "ddim",
+                        "steps": 20,
+                        "cfg": 7.5,
+                    },
+                },
+            }
+        },
+    },
+    {
+        "id": "workflow2",
+        "name": "Inpainting Workflow",
+        "description": "For inpainting masked regions",
+        "data": {
+            "nodes": {
+                "1": {
+                    "id": "1",
+                    "type": "image_loader",
+                    "title": "Image Loader",
+                    "properties": {
+                        "image_path": "",
+                        "mask_path": "",
+                        "resize_mode": "crop",
+                    },
+                },
+                "2": {
+                    "id": "2",
+                    "type": "inpaint_model",
+                    "title": "Inpaint Model",
+                    "properties": {
+                        "prompt": "A beautiful mountain landscape",
+                        "steps": 20,
+                        "cfg": 7.5,
+                        "denoise": 0.8,
+                    },
+                },
+            }
+        },
+    },
+]
+
+
 # ---------------------------------------------------------------------------
 # Helpers for encrypted Civitai API key storage
 # ---------------------------------------------------------------------------
@@ -121,6 +186,12 @@ COMFYUI_BASE_URL = os.environ.get("COMFYUI_BASE_URL", "http://localhost:8188")
 app = FastAPI()
 init_db()
 api_router = APIRouter(prefix="/api")
+
+
+@api_router.get("/")
+async def api_root():
+    """Simple root endpoint used for health checks."""
+    return api_response({"message": "ComfyUI Frontend API"})
 
 app.add_middleware(CSRFMiddleware, cookie_secure=not DEBUG_MODE)
 app.add_middleware(
@@ -198,6 +269,61 @@ class GenerateRequest(BaseModel):
 
 class CivitaiKey(BaseModel):
     api_key: str = Field(..., min_length=1)
+
+
+class ParameterMapping(BaseModel):
+    """Mapping of a shortcode parameter to a workflow node parameter."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    code: str
+    node_id: str
+    param_name: str
+    value_template: str = "{value}"
+    description: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Parameter mapping endpoints
+# ---------------------------------------------------------------------------
+
+
+@api_router.post("/parameters", response_model=ParameterMapping)
+async def create_parameter(mapping: ParameterMapping):
+    doc = mapping.dict()
+    doc["_id"] = mapping.id
+    await db.parameter_mappings.insert_one(doc)
+    return api_response(mapping.dict())
+
+
+@api_router.get("/parameters", response_model=List[ParameterMapping])
+async def get_parameters():
+    records = await db.parameter_mappings.find().to_list(1000)
+    payload = [
+        {
+            "id": r.get("_id", r.get("id")),
+            "code": r.get("code"),
+            "node_id": r.get("node_id"),
+            "param_name": r.get("param_name"),
+            "value_template": r.get("value_template", "{value}"),
+            "description": r.get("description", ""),
+        }
+        for r in records
+    ]
+    return api_response(payload)
+
+
+@api_router.put("/parameters/{param_id}", response_model=ParameterMapping)
+async def update_parameter(param_id: str, mapping: ParameterMapping):
+    doc = mapping.dict()
+    doc["_id"] = param_id
+    await db.parameter_mappings.update_one({"_id": param_id}, {"$set": doc}, upsert=True)
+    return api_response(mapping.dict())
+
+
+@api_router.delete("/parameters/{param_id}")
+async def delete_parameter(param_id: str):
+    await db.parameter_mappings.delete_one({"_id": param_id})
+    return api_response({"message": "Parameter mapping deleted"})
 
 
 # ---------------------------------------------------------------------------
@@ -353,6 +479,17 @@ async def get_outputs(dbs: Session = Depends(get_sql_db)):
 
 
 # ---------------------------------------------------------------------------
+# Sample workflows
+# ---------------------------------------------------------------------------
+
+
+@api_router.get("/sample-workflows")
+async def sample_workflows():
+    """Return a list of example workflows for the frontend demo."""
+    return api_response(SAMPLE_WORKFLOWS)
+
+
+# ---------------------------------------------------------------------------
 # Generation endpoints and progress streaming
 # ---------------------------------------------------------------------------
 
@@ -468,6 +605,17 @@ async def proxy_comfyui_queue():
     data = resp.json()
     log_backend_call("GET", f"{COMFYUI_BASE_URL}/queue", None, data, resp.status_code, start)
     return api_response(data)
+
+
+@api_router.get("/comfyui/status")
+async def comfyui_status():
+    """Return basic status information about the configured ComfyUI server."""
+    try:
+        resp = requests.get(f"{COMFYUI_BASE_URL}/queue", timeout=5)
+        resp.raise_for_status()
+        return api_response({"status": "online"})
+    except Exception as exc:  # pragma: no cover - network failures
+        return api_response({"status": "offline", "error": str(exc)})
 
 
 # ---------------------------------------------------------------------------
