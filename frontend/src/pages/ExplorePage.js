@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
@@ -13,6 +13,8 @@ const ExplorePage = () => {
   const [toast, setToast] = useState(null);
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  const loadMoreRef = useRef(null);
 
   const navigate = useNavigate();
   
@@ -38,8 +40,19 @@ const ExplorePage = () => {
         const newImages = imagesRes.items || imagesRes.data || imagesRes;
         const newModels = modelsRes.items || modelsRes.data || modelsRes;
 
-        setImages(prev => (page === 1 ? newImages : [...prev, ...newImages]));
-        setModels(prev => (page === 1 ? newModels : [...prev, ...newModels]));
+        // Deduplicate results when appending
+        setImages(prev => {
+          if (page === 1) return newImages;
+          const ids = new Set(prev.map(i => i.id));
+          const merged = [...prev, ...newImages.filter(img => !ids.has(img.id))];
+          return merged;
+        });
+        setModels(prev => {
+          if (page === 1) return newModels;
+          const ids = new Set(prev.map(m => m.id));
+          const merged = [...prev, ...newModels.filter(m => !ids.has(m.id))];
+          return merged;
+        });
         setLoading(false);
         setLoadingMore(false);
       } catch (error) {
@@ -55,13 +68,17 @@ const ExplorePage = () => {
 
   // Observer to trigger loading more images when scrolling near the bottom
   useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && !loadingMore) {
-        setPage(p => p + 1);
-      }
-    });
-    const el = document.getElementById('load-more-trigger');
-    if (el) observer.observe(el);
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loadingMore) {
+          setPage((p) => p + 1);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
     return () => observer.disconnect();
   }, [loadingMore]);
   
@@ -194,7 +211,7 @@ const ExplorePage = () => {
                   </div>
                 </div>
               ))}
-              <div id="load-more-trigger" style={{ height: 1 }}></div>
+              <div ref={loadMoreRef} style={{ height: 1 }}></div>
             </div>
           )}
         </>
