@@ -23,31 +23,31 @@
 
 [DONE-2] Integrate with Civitai by allowing users to input and store their Civitai API key securely in the settings panel, encrypted and never exposed to the client or logs.
 
-[DONE] Use the Civitai API to fetch and display images, prompts, and models in the Explore page, with lazy loading and infinite scrolling for browsing high volumes of results.
+[DONE-2] Use the Civitai API to fetch and display images, prompts, and models in the Explore page, with lazy loading and infinite scrolling for browsing high volumes of results.
 
-[DONE] Connect Explore-page images to the prompt system by enabling one-click "generate from this prompt" which pushes the selected prompt directly into the generation input bar.
+[DONE-2] Connect Explore-page images to the prompt system by enabling one-click "generate from this prompt" which pushes the selected prompt directly into the generation input bar.
 
 [DONE-2] Implement throttling and caching when interacting with the Civitai API to respect their rate limits and usage guidelines.
 
-[DONE] Build a responsive UI experience modeled after Midjourney, including keyboard shortcuts (e.g. `/` to focus prompt bar, ↑↓ to navigate history) and drag-and-drop image support to trigger img2img workflows.
+[DONE-2] Build a responsive UI experience modeled after Midjourney, including keyboard shortcuts (e.g. `/` to focus prompt bar, ↑↓ to navigate history) and drag-and-drop image support to trigger img2img workflows.
 
 [DONE-2] Display generation progress using toast notifications or overlays that show job status transitions (queued → generating → done or error) with unique job IDs.
 
 [DONE-2] Add hover-activated image toolbars to each image tile in the gallery or Create page that provide quick access to mapped actions like upscale or zoom.
 
-[DONE] Support theme switching (dark/light) stored in local storage and toggled via the settings panel.
+[DONE-2] Support theme switching (dark/light) stored in local storage and toggled via the settings panel.
 
 [DONE-2] Implement a full-featured image editing page that supports mask painting (erase/restore), brush size control, undo, and layered edits, and allows users to submit the edited image directly to workflows like inpaint or outpaint.
 
-[DONE] Store all user-submitted prompts, workflows, image outputs, parameters, and actions in a persistent SQL database with relational consistency and auditing.
+[DONE-2] Store all user-submitted prompts, workflows, image outputs, parameters, and actions in a persistent SQL database with relational consistency and auditing.
 
 [DONE-2] Log every ComfyUI backend call with full JSON request, response, status, timestamps, and runtime so performance can be debugged and replayed.
 
-[DONE] Provide background cleanup and data maintenance tools for thumbnails, temp files, disk quotas, and expired image outputs to keep storage usage optimal, but keep generation jobs and images persistent in create page.
+[DONE-2] Provide background cleanup and data maintenance tools for thumbnails, temp files, disk quotas, and expired image outputs to keep storage usage optimal, but keep generation jobs and images persistent in create page.
 
-[DONE] Apply security best practices including CSRF protection, JWT session rotation, and input validation on all form-based or prompt data.
+[DONE-2] Apply security best practices including CSRF protection, JWT session rotation, and input validation on all form-based or prompt data.
 
-[DONE] Apply security best practices including CSRF protection, JWT session rotation, and input validation on all form-based or prompt data.
+[DONE-2] Apply security best practices including CSRF protection, JWT session rotation, and input validation on all form-based or prompt data.
 
 
-[DONE] Encrypt and store Civitai keys securely using a secrets manager or environment variable system, never exposing them in logs or the client.
+[DONE-2] Encrypt and store Civitai keys securely using a secrets manager or environment variable system, never exposing them in logs or the client.
