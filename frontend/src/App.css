@@ -302,6 +302,16 @@ button:disabled {
   gap: 10px;
 }
 
+.parameters-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.parameters-menu .form-group {
+  margin-bottom: 0;
+}
+
 .tool-button {
   background: var(--bg-input);
   color: var(--text-secondary);

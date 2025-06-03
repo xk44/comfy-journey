@@ -368,21 +368,6 @@ const SettingsPage = () => {
                   </select>
                 </div>
                 
-                <div className="form-group">
-                  <label htmlFor="defaultAspectRatio">Default Aspect Ratio</label>
-                  <select 
-                    id="defaultAspectRatio" 
-                    name="defaultAspectRatio"
-                    value={preferences.defaultAspectRatio}
-                    onChange={handlePreferenceChange}
-                  >
-                    <option value="1:1">Square (1:1)</option>
-                    <option value="16:9">Landscape (16:9)</option>
-                    <option value="9:16">Portrait (9:16)</option>
-                    <option value="4:3">Standard (4:3)</option>
-                    <option value="3:2">Photo (3:2)</option>
-                  </select>
-                </div>
                 
                 <div className="form-group">
                   <label htmlFor="defaultQuality">Default Quality</label>
