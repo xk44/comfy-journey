@@ -718,9 +718,15 @@ async def has_civitai_key():
 
 
 @api_router.get("/civitai/images")
-async def civitai_images(limit: int = 20, page: int = 1, query: Optional[str] = None):
+async def civitai_images(
+    limit: int = 20,
+    page: int = 1,
+    query: Optional[str] = None,
+    nsfw: Optional[bool] = False,
+):
+    """Proxy to Civitai image search with optional NSFW flag."""
     api_key = await get_civitai_key()
-    params = {"limit": limit, "page": page}
+    params = {"limit": limit, "page": page, "nsfw": nsfw}
     if query:
         params["query"] = query
     data = await civitai_fetch("/images", params=params, api_key=api_key)
@@ -728,11 +734,19 @@ async def civitai_images(limit: int = 20, page: int = 1, query: Optional[str] = 
 
 
 @api_router.get("/civitai/models")
-async def civitai_models(limit: int = 20, page: int = 1, query: Optional[str] = None):
+async def civitai_models(
+    limit: int = 20,
+    page: int = 1,
+    query: Optional[str] = None,
+    types: Optional[str] = None,
+):
+    """Proxy to Civitai model search with optional type filter."""
     api_key = await get_civitai_key()
     params = {"limit": limit, "page": page}
     if query:
         params["query"] = query
+    if types:
+        params["types"] = types
     data = await civitai_fetch("/models", params=params, api_key=api_key)
     return api_response(data)
 
