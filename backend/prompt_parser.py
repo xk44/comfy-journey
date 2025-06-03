@@ -66,21 +66,38 @@ def tokens_to_patch(
         if not mapping:
             continue
 
-        template = mapping.get("value_template", "{value}")
-        op = mapping.get("op", "replace")
-        path_template = mapping.get(
-            "path_template", "/nodes/{node_id}/properties/{param_name}"
-        )
-        try:
-            path = path_template.format(**mapping)
-        except KeyError:
-            path = f"/nodes/{mapping['node_id']}/properties/{mapping['param_name']}"
+        if mapping.get("injection_mode"):
+            path_template = mapping.get(
+                "path_template", "/nodes/{node_id}/properties/{param_name}"
+            )
+            try:
+                path = path_template.format(**mapping)
+            except KeyError:
+                path = f"/nodes/{mapping['node_id']}/properties/{mapping['param_name']}"
+            patch_ops.append(
+                {
+                    "op": "text_inject",
+                    "path": path,
+                    "mode": mapping["injection_mode"],
+                    "value": value,
+                }
+            )
+        else:
+            template = mapping.get("value_template", "{value}")
+            op = mapping.get("op", "replace")
+            path_template = mapping.get(
+                "path_template", "/nodes/{node_id}/properties/{param_name}"
+            )
+            try:
+                path = path_template.format(**mapping)
+            except KeyError:
+                path = f"/nodes/{mapping['node_id']}/properties/{mapping['param_name']}"
 
-        patch_ops.append(
-            {
-                "op": op,
-                "path": path,
-                "value": template.format(value=value),
-            }
-        )
+            patch_ops.append(
+                {
+                    "op": op,
+                    "path": path,
+                    "value": template.format(value=value),
+                }
+            )
     return patch_ops

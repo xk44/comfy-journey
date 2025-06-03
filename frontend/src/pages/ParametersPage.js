@@ -17,6 +17,7 @@ const ParametersPage = () => {
     node_id: "",
     param_name: "",
     value_template: "",
+    injection_mode: "",
     description: ""
   });
   
@@ -147,6 +148,7 @@ const ParametersPage = () => {
         node_id: "",
         param_name: "",
         value_template: "",
+        injection_mode: "",
         description: ""
       });
       
@@ -177,6 +179,7 @@ const ParametersPage = () => {
       node_id: parameter.node_id,
       param_name: parameter.param_name,
       value_template: parameter.value_template || "",
+      injection_mode: parameter.injection_mode || "",
       description: parameter.description || ""
     });
     
@@ -307,16 +310,30 @@ const ParametersPage = () => {
           <div className="form-group">
             <label htmlFor="value_template">Value Template</label>
             <div className="input-with-help">
-              <input 
-                type="text" 
-                id="value_template" 
+              <input
+                type="text"
+                id="value_template"
                 name="value_template"
                 value={newParameter.value_template}
                 onChange={handleParameterChange}
-                placeholder="e.g., width:height or {value}" 
+                placeholder="e.g., width:height or {value}"
               />
               <span className="help-text">Format for the parameter value (e.g., width:height for --ar 16:9)</span>
             </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="injection_mode">Injection Mode</label>
+            <select
+              id="injection_mode"
+              name="injection_mode"
+              value={newParameter.injection_mode}
+              onChange={handleParameterChange}
+            >
+              <option value="">None (set parameter)</option>
+              <option value="prepend">Prepend text</option>
+              <option value="append">Append text</option>
+            </select>
           </div>
           
           <div className="form-group">
@@ -373,6 +390,12 @@ const ParametersPage = () => {
                 <strong>Extracted Parameters:</strong>
                 <pre>{JSON.stringify(testResult.parameters, null, 2)}</pre>
               </div>
+              {testResult.injections && (
+                <div className="result-item">
+                  <strong>Text Injections:</strong>
+                  <pre>{JSON.stringify(testResult.injections, null, 2)}</pre>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -393,6 +416,7 @@ const ParametersPage = () => {
                 <th>Node</th>
                 <th>Parameter</th>
                 <th>Template</th>
+                <th>Injection</th>
                 <th>Description</th>
                 <th>Actions</th>
               </tr>
@@ -404,6 +428,7 @@ const ParametersPage = () => {
                   <td>{param.node_id}</td>
                   <td>{param.param_name}</td>
                   <td>{param.value_template || '{value}'}</td>
+                  <td>{param.injection_mode || '-'}</td>
                   <td>{param.description}</td>
                   <td className="parameter-actions">
                     <button 

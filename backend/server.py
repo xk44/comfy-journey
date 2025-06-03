@@ -279,6 +279,7 @@ class ParameterMapping(BaseModel):
     node_id: str
     param_name: str
     value_template: str = "{value}"
+    injection_mode: Optional[str] = None
     description: str = ""
 
 
@@ -305,6 +306,7 @@ async def get_parameters():
             "node_id": r.get("node_id"),
             "param_name": r.get("param_name"),
             "value_template": r.get("value_template", "{value}"),
+            "injection_mode": r.get("injection_mode"),
             "description": r.get("description", ""),
         }
         for r in records

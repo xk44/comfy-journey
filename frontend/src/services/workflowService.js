@@ -7,7 +7,7 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 const getComfyUIWorkflows = async () => {
   try {
     const response = await authService.authAxios.get(`${API_URL}/api/comfyui/workflows`);
-    return response.data;
+    return response.data?.payload || response.data;
   } catch (error) {
     console.error('Error getting ComfyUI workflows:', error);
     return [];
@@ -18,7 +18,7 @@ const getComfyUIWorkflows = async () => {
 const getWorkflows = async () => {
   try {
     const response = await authService.authAxios.get(`${API_URL}/api/relational/workflows`);
-    return response.data;
+    return response.data?.payload || response.data;
   } catch (error) {
     console.error('Error getting workflow mappings:', error);
     return [];
@@ -29,7 +29,7 @@ const getWorkflows = async () => {
 const createWorkflow = async (workflow) => {
   try {
     const response = await authService.authAxios.post(`${API_URL}/api/relational/workflows`, workflow);
-    return response.data;
+    return response.data?.payload || response.data;
   } catch (error) {
     console.error('Error creating workflow mapping:', error);
     throw error;
@@ -40,7 +40,7 @@ const createWorkflow = async (workflow) => {
 const updateWorkflow = async (id, workflow) => {
   try {
     const response = await authService.authAxios.put(`${API_URL}/api/relational/workflows/${id}`, workflow);
-    return response.data;
+    return response.data?.payload || response.data;
   } catch (error) {
     console.error('Error updating workflow mapping:', error);
     throw error;
@@ -51,7 +51,7 @@ const updateWorkflow = async (id, workflow) => {
 const deleteWorkflow = async (id) => {
   try {
     const response = await authService.authAxios.delete(`${API_URL}/api/relational/workflows/${id}`);
-    return response.data;
+    return response.data?.payload || response.data;
   } catch (error) {
     console.error('Error deleting workflow mapping:', error);
     throw error;
