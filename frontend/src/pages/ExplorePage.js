@@ -5,6 +5,82 @@ import Toast from '../components/Toast';
 import civitaiService from '../services/civitaiService';
 import downloadService from '../services/downloadService';
 
+const PERIOD_OPTIONS = [
+  { label: 'Day', value: 'Day' },
+  { label: 'Week', value: 'Week' },
+  { label: 'Month', value: 'Month' },
+  { label: 'Year', value: 'Year' },
+  { label: 'All Time', value: 'AllTime' }
+];
+
+const SORT_OPTIONS = [
+  'Highest Rated',
+  'Most Downloaded',
+  'Most Liked',
+  'Most Discussed',
+  'Most Collected',
+  'Most Images',
+  'Newest',
+  'Oldest'
+];
+
+const MODEL_TYPES = [
+  'Checkpoint',
+  'Embedding',
+  'Hypernetwork',
+  'Aesthetic Gradient',
+  'LoRA',
+  'LyCORIS',
+  'DoRA',
+  'Controlnet',
+  'Upscaler',
+  'Motion',
+  'VAE',
+  'Poses',
+  'Wildcards',
+  'Detection',
+  'Other'
+];
+
+const BASE_MODELS = [
+  'SD 1.4',
+  'SD 1.5',
+  'SD 1.5 LCM',
+  'SD 1.5 Hyper',
+  'SD 2.0',
+  'SD 2.1',
+  'SDXL 1.0',
+  'SD 3',
+  'SD 3.5',
+  'SD 3.5 Medium',
+  'SD 3.5 Large',
+  'SD 3.5 Large Turbo',
+  'Pony',
+  'Flux .1 S',
+  'Flux .1 D',
+  'Aura Flow',
+  'SDXL Lightning',
+  'SDXL Hyper',
+  'SVD',
+  'PixArt α',
+  'PixArt Σ',
+  'Hunyuan 1',
+  'Hunyuan Video',
+  'Lumina',
+  'Kolors',
+  'Illustrious',
+  'Mochi',
+  'LTXV',
+  'CogVideoX',
+  'NoobAI',
+  'Wan Video 1.3B t2v',
+  'Wan Video 14B t2v',
+  'Wan Video 14B i2v 480p',
+  'Wan Video 14B i2v 720p',
+  'HiDream',
+  'Other'
+];
+
 const ExplorePage = () => {
   const [activeTab, setActiveTab] = useState('Images');
   const [showNsfw, setShowNsfw] = useState(() => {
@@ -12,6 +88,7 @@ const ExplorePage = () => {
     return saved === 'true';
   });
   const [images, setImages] = useState([]);
+  const [videos, setVideos] = useState([]);
   const [models, setModels] = useState([]);
   const [workflows, setWorkflows] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,137 +96,95 @@ const ExplorePage = () => {
   const [toast, setToast] = useState(null);
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
-
+  const [period, setPeriod] = useState(() => localStorage.getItem('cj_period') || 'Day');
+  const [sort, setSort] = useState(() => localStorage.getItem('cj_sort') || 'Highest Rated');
+  const [baseModel, setBaseModel] = useState(() => localStorage.getItem('cj_base_model') || '');
+  const [modelType, setModelType] = useState(() => localStorage.getItem('cj_model_type') || '');
   const loadMoreRef = useRef(null);
-
   const navigate = useNavigate();
-  
   const { currentUser } = useAuth();
-  
-  // Categories for the image tabs
-  const categories = ['Random', 'Hot', 'Top Month', 'Likes'];
-  const [activeCategory, setActiveCategory] = useState('Top Month');
 
-  const categoryParams = {
-    Random: { sort: 'Newest', period: 'Week' },
-    Hot: { sort: 'Most Reactions', period: 'Day' },
-    'Top Month': { sort: 'Most Reactions', period: 'Month' },
-    Likes: { sort: 'Most Reactions', period: 'AllTime' }
-  };
-
-  // Persist NSFW preference
   useEffect(() => {
     localStorage.setItem('cj_civitai_show_nsfw', showNsfw.toString());
   }, [showNsfw]);
 
-  // Fetch images and models when the page or category changes
   useEffect(() => {
-    const fetchExploreData = async () => {
+    localStorage.setItem('cj_period', period);
+  }, [period]);
+
+  useEffect(() => {
+    localStorage.setItem('cj_sort', sort);
+  }, [sort]);
+
+  useEffect(() => {
+    localStorage.setItem('cj_base_model', baseModel);
+  }, [baseModel]);
+
+  useEffect(() => {
+    localStorage.setItem('cj_model_type', modelType);
+  }, [modelType]);
+
+  useEffect(() => {
+    const fetchData = async () => {
       try {
         if (page === 1) {
           setLoading(true);
         } else {
           setLoadingMore(true);
         }
+        const imgRes = await civitaiService.getImages({ limit: 20, page, nsfw: showNsfw, sort, period, baseModel });
+        const vidRes = await civitaiService.getVideos({ limit: 20, page, nsfw: showNsfw, sort, period, baseModel });
+        const modRes = await civitaiService.getModels({ limit: 20, page, sort, period, types: modelType, baseModel });
+        const wfRes = await civitaiService.getModels({ limit: 20, page, types: 'Workflow', sort, period, baseModel });
 
-        const { sort, period } = categoryParams[activeCategory] || {};
-        const imagesRes = await civitaiService.getImages({ limit: 20, page, nsfw: showNsfw, sort, period });
-        const modelsRes = await civitaiService.getModels({ limit: 20, page });
-        const workflowsRes = await civitaiService.getModels({ limit: 20, page, types: 'Workflow' });
+        const newImages = imgRes.items || imgRes.data || imgRes;
+        const newVideos = vidRes.items || vidRes.data || vidRes;
+        const newModels = modRes.items || modRes.data || modRes;
+        const newWorkflows = wfRes.items || wfRes.data || wfRes;
 
-        const newImages = imagesRes.items || imagesRes.data || imagesRes;
-        const newModels = modelsRes.items || modelsRes.data || modelsRes;
-        const newWorkflows = workflowsRes.items || workflowsRes.data || workflowsRes;
-
-        // Deduplicate results when appending
-        setImages(prev => {
-          if (page === 1) return newImages;
-          const ids = new Set(prev.map(i => i.id));
-          const merged = [...prev, ...newImages.filter(img => !ids.has(img.id))];
-          return merged;
-        });
-        setModels(prev => {
-          if (page === 1) return newModels;
-          const ids = new Set(prev.map(m => m.id));
-          const merged = [...prev, ...newModels.filter(m => !ids.has(m.id))];
-          return merged;
-        });
-        setWorkflows(prev => {
-          if (page === 1) return newWorkflows;
-          const ids = new Set(prev.map(w => w.id));
-          const merged = [...prev, ...newWorkflows.filter(w => !ids.has(w.id))];
-          return merged;
-        });
+        setImages(prev => page === 1 ? newImages : [...prev, ...newImages]);
+        setVideos(prev => page === 1 ? newVideos : [...prev, ...newVideos]);
+        setModels(prev => page === 1 ? newModels : [...prev, ...newModels]);
+        setWorkflows(prev => page === 1 ? newWorkflows : [...prev, ...newWorkflows]);
         setLoading(false);
         setLoadingMore(false);
-      } catch (error) {
-        console.error('Error fetching explore data:', error);
+      } catch (err) {
+        console.error('Error fetching explore data', err);
         setLoading(false);
         setLoadingMore(false);
         showToast('Failed to load explore data. Please try again.', 'error');
       }
     };
+    fetchData();
+  }, [page, showNsfw, period, sort, baseModel, modelType]);
 
-    fetchExploreData();
-  }, [page, showNsfw, activeCategory]);
-
-  // Observer to trigger loading more images when scrolling near the bottom
   useEffect(() => {
     const el = loadMoreRef.current;
     if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !loadingMore) {
-          setPage((p) => p + 1);
-        }
-      },
-      { rootMargin: '200px' }
-    );
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !loadingMore) {
+        setPage(p => p + 1);
+      }
+    }, { rootMargin: '200px' });
     observer.observe(el);
     return () => observer.disconnect();
   }, [loadingMore]);
-  
-  const handleSearch = (e) => {
-    setSearchQuery(e.target.value);
-    // In a real implementation, you would filter results or fetch from API based on search query
-  };
-  
-  const showToast = (message, type = 'info') => {
-    setToast({ message, type });
-  };
-  
-  const clearToast = () => {
-    setToast(null);
-  };
-  
-  const handleImageClick = (image) => {
-    // Navigate to the image detail or editor page
-    console.log('Image clicked:', image);
-  };
+
+  const handleSearch = (e) => setSearchQuery(e.target.value);
+  const showToast = (message, type = 'info') => setToast({ message, type });
+  const clearToast = () => setToast(null);
 
   const handleUsePrompt = (image) => {
     localStorage.setItem('imported_prompt', image.prompt);
     navigate('/');
   };
-  
-  const handleModelClick = (model) => {
-    // Navigate to the model detail page
-    console.log('Model clicked:', model);
-  };
 
   const handleDownloadModel = async (model) => {
     const paths = JSON.parse(localStorage.getItem('cj_paths') || '{}');
     let dir = paths.checkpointsDir;
-    if (model.type && model.type.toLowerCase().includes('lora')) {
-      dir = paths.lorasDir;
-    }
-    if (model.type && model.type.toLowerCase().includes('workflow')) {
-      dir = paths.workflowsDir;
-    }
-    if (!dir) {
-      showToast('Download path not set in Settings', 'error');
-      return;
-    }
+    if (model.type && model.type.toLowerCase().includes('lora')) dir = paths.lorasDir;
+    if (model.type && model.type.toLowerCase().includes('workflow')) dir = paths.workflowsDir;
+    if (!dir) { showToast('Download path not set in Settings', 'error'); return; }
     try {
       await downloadService.downloadFile(model.downloadUrl || model.url, dir);
       showToast('Download started', 'success');
@@ -158,117 +193,88 @@ const ExplorePage = () => {
       showToast('Download failed', 'error');
     }
   };
-  
-  const filteredImages = images.filter(
-    img => img.prompt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           img.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  
-  const filteredModels = models.filter(
-    model => model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             model.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             model.creator.toLowerCase().includes(searchQuery.toLowerCase())
+
+  const filtered = (arr, fields) => arr.filter(item =>
+    fields.some(f => (item[f] || '').toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const filteredWorkflows = workflows.filter(
-    wf => wf.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           wf.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           (wf.creator || '').toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredImages = filtered(images, ['prompt', 'username']);
+  const filteredVideos = filtered(videos, ['prompt', 'username']);
+  const filteredModels = filtered(models, ['name', 'description', 'creator']);
+  const filteredWorkflows = filtered(workflows, ['name', 'description', 'creator']);
+
+  const filterMenu = (
+    <div className="filter-menu">
+      <div className="filter-group">
+        <span>Time Period:</span>
+        {PERIOD_OPTIONS.map(o => (
+          <button key={o.value} className={period === o.value ? 'active' : ''} onClick={() => { setPeriod(o.value); setPage(1); }}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <div className="filter-group">
+        <span>Sort:</span>
+        {SORT_OPTIONS.map(o => (
+          <button key={o} className={sort === o ? 'active' : ''} onClick={() => { setSort(o); setPage(1); }}>
+            {o}
+          </button>
+        ))}
+      </div>
+      {activeTab === 'Models' && (
+        <div className="filter-group">
+          <span>Model Type:</span>
+          {MODEL_TYPES.map(t => (
+            <button key={t} className={modelType === t ? 'active' : ''} onClick={() => { setModelType(t); setPage(1); }}>
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="filter-group">
+        <span>Base Model:</span>
+        {BASE_MODELS.map(b => (
+          <button key={b} className={baseModel === b ? 'active' : ''} onClick={() => { setBaseModel(b); setPage(1); }}>
+            {b}
+          </button>
+        ))}
+      </div>
+    </div>
   );
-  
+
   return (
     <div className="explore-page">
-      {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={clearToast} 
-        />
-      )}
-      
+      {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
       <div className="explore-header">
         <div className="explore-tabs">
-          <button 
-            className={`explore-tab ${activeTab === 'Images' ? 'active' : ''}`}
-            onClick={() => setActiveTab('Images')}
-          >
-            Images
-          </button>
-          <button
-            className={`explore-tab ${activeTab === 'Models' ? 'active' : ''}`}
-            onClick={() => setActiveTab('Models')}
-          >
-            Models
-          </button>
-          <button
-            className={`explore-tab ${activeTab === 'Workflows' ? 'active' : ''}`}
-            onClick={() => setActiveTab('Workflows')}
-          >
-            Workflows
-          </button>
+          {['Images','Videos','Models','Workflows'].map(tab => (
+            <button key={tab} className={`explore-tab ${activeTab===tab?'active':''}`} onClick={() => { setActiveTab(tab); }}>
+              {tab}
+            </button>
+          ))}
         </div>
-        
         <div className="search-container">
-          <input
-            type="text"
-            className="search-input"
-            placeholder={`Search ${activeTab.toLowerCase()}...`}
-            value={searchQuery}
-            onChange={handleSearch}
-          />
+          <input type="text" className="search-input" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchQuery} onChange={handleSearch} />
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="search-icon" width="20" height="20">
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
           </svg>
         </div>
       </div>
-      
+      {filterMenu}
       {activeTab === 'Images' && (
         <>
-          <div className="category-tabs">
-            {categories.map(category => (
-              <button
-                key={category}
-                className={`category-tab ${activeCategory === category ? 'active' : ''}`}
-                onClick={() => setActiveCategory(category)}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-          
           {loading ? (
-            <div className="loading-container">
-              <div className="spinner"></div>
-            </div>
+            <div className="loading-container"><div className="spinner"></div></div>
           ) : filteredImages.length === 0 ? (
-            <div className="empty-state">
-              <h2>No Results Found</h2>
-              <p>Try adjusting your search query</p>
-            </div>
+            <div className="empty-state"><h2>No Results Found</h2><p>Try adjusting your search query</p></div>
           ) : (
             <div className="image-grid explore-grid">
-              {filteredImages.map(image => (
-                <div key={image.id} className="image-card" onClick={() => handleImageClick(image)}>
-                  <img
-                    src={image.url}
-                    alt={image.prompt}
-                    className="grid-image"
-                    loading="lazy"
-                  />
-                  <button className="use-prompt-button" onClick={(e) => { e.stopPropagation(); handleUsePrompt(image); }}>
-                    Use Prompt
-                  </button>
+              {filteredImages.map(img => (
+                <div key={img.id} className="image-card" onClick={() => console.log('Image clicked', img)}>
+                  <img src={img.url} alt={img.prompt} className="grid-image" loading="lazy" />
+                  <button className="use-prompt-button" onClick={e => { e.stopPropagation(); handleUsePrompt(img); }}>Use Prompt</button>
                   <div className="image-info">
-                    <div className="image-prompt">{image.prompt}</div>
-                    <div className="image-meta">
-                      <span className="image-username">@{image.username}</span>
-                      <span className="image-likes">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="16" height="16">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-                        </svg>
-                        {image.likes}
-                      </span>
-                    </div>
+                    <div className="image-prompt">{img.prompt}</div>
                   </div>
                 </div>
               ))}
@@ -277,74 +283,65 @@ const ExplorePage = () => {
           )}
         </>
       )}
-      
+      {activeTab === 'Videos' && (
+        <>
+          {loading ? (
+            <div className="loading-container"><div className="spinner"></div></div>
+          ) : filteredVideos.length === 0 ? (
+            <div className="empty-state"><h2>No Results Found</h2><p>Try adjusting your search query</p></div>
+          ) : (
+            <div className="image-grid explore-grid">
+              {filteredVideos.map(v => (
+                <div key={v.id} className="image-card">
+                  <video src={v.url} className="grid-image" controls preload="metadata" />
+                  <div className="image-info">
+                    <div className="image-prompt">{v.prompt}</div>
+                  </div>
+                </div>
+              ))}
+              <div ref={loadMoreRef} style={{ height: 1 }}></div>
+            </div>
+          )}
+        </>
+      )}
       {activeTab === 'Models' && (
         <>
           {loading ? (
-            <div className="loading-container">
-              <div className="spinner"></div>
-            </div>
+            <div className="loading-container"><div className="spinner"></div></div>
           ) : filteredModels.length === 0 ? (
-            <div className="empty-state">
-              <h2>No Models Found</h2>
-              <p>Try adjusting your search query</p>
-            </div>
+            <div className="empty-state"><h2>No Models Found</h2><p>Try adjusting your search query</p></div>
           ) : (
             <div className="models-grid">
               {filteredModels.map(model => (
-                <div key={model.id} className="model-card" onClick={() => handleModelClick(model)}>
+                <div key={model.id} className="model-card" onClick={() => console.log('Model clicked', model)}>
                   <div className="model-header">
                     <h3 className="model-name">{model.name}</h3>
-                    <div className="model-rating">
-                      <span className="rating-stars">{'★'.repeat(Math.floor(model.rating)) + (model.rating % 1 >= 0.5 ? '½' : '')}</span>
-                      <span className="rating-value">{model.rating.toFixed(1)}</span>
-                    </div>
                   </div>
-                  
                   <p className="model-description">{model.description}</p>
-                  
                   <div className="model-meta">
                     <span className="model-creator">By @{model.creator}</span>
-                    <span className="model-downloads">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="16" height="16">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                      </svg>
-                      {model.downloads.toLocaleString()}
-                    </span>
+                    <span className="model-downloads">{model.downloads}</span>
                   </div>
-                  
-                  <button className="download-model-button" onClick={(e) => { e.stopPropagation(); handleDownloadModel(model); }}>
-                    Download
-                  </button>
+                  <button className="download-model-button" onClick={e => { e.stopPropagation(); handleDownloadModel(model); }}>Download</button>
                 </div>
               ))}
             </div>
           )}
         </>
       )}
-
       {activeTab === 'Workflows' && (
         <>
           {loading ? (
-            <div className="loading-container">
-              <div className="spinner"></div>
-            </div>
+            <div className="loading-container"><div className="spinner"></div></div>
           ) : filteredWorkflows.length === 0 ? (
-            <div className="empty-state">
-              <h2>No Workflows Found</h2>
-              <p>Try adjusting your search query</p>
-            </div>
+            <div className="empty-state"><h2>No Workflows Found</h2><p>Try adjusting your search query</p></div>
           ) : (
             <div className="models-grid">
               {filteredWorkflows.map(wf => (
-                <div key={wf.id} className="model-card" onClick={() => handleModelClick(wf)}>
-                  <div className="model-header">
-                    <h3 className="model-name">{wf.name}</h3>
-                  </div>
+                <div key={wf.id} className="model-card" onClick={() => console.log('Workflow clicked', wf)}>
+                  <div className="model-header"><h3 className="model-name">{wf.name}</h3></div>
                   <p className="model-description">{wf.description}</p>
-                  <button className="download-model-button" onClick={(e) => { e.stopPropagation(); handleDownloadModel(wf); }}>
-                    Download
-                  </button>
+                  <button className="download-model-button" onClick={e => { e.stopPropagation(); handleDownloadModel(wf); }}>Download</button>
                 </div>
               ))}
             </div>

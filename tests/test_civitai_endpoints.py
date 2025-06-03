@@ -82,3 +82,25 @@ def test_query_parameters_forwarded(monkeypatch):
     assert captured["params"]["sort"] == "Newest"
     assert captured["params"]["period"] == "Week"
     assert captured["params"]["username"] == "bob"
+
+
+def test_videos_forwarded(monkeypatch):
+    captured = {}
+
+    async def dummy_fetch(endpoint, params=None, api_key=None):
+        captured["endpoint"] = endpoint
+        captured["params"] = params
+        return {}
+
+    monkeypatch.setattr(server, "civitai_fetch", dummy_fetch)
+
+    resp = client.get(
+        "/api/civitai/videos",
+        params={"limit": 3, "page": 1, "sort": "Newest", "period": "Month"},
+    )
+    assert resp.status_code == 200
+    assert captured["endpoint"] == "/videos"
+    assert captured["params"]["limit"] == "3"
+    assert captured["params"]["page"] == "1"
+    assert captured["params"]["sort"] == "Newest"
+    assert captured["params"]["period"] == "Month"

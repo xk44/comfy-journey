@@ -59,7 +59,8 @@ export const getImages = async ({
   period = 'AllTime',
   query = '',
   username = '',
-  modelId = ''
+  modelId = '',
+  baseModel = ''
 }) => {
   const params = {
     limit,
@@ -68,7 +69,8 @@ export const getImages = async ({
     sort,
     period,
     username,
-    modelId
+    modelId,
+    baseModel
   };
   
   // Add search query if provided (as a query parameter)
@@ -96,7 +98,8 @@ export const getModels = async ({
   tag = '',
   types = '',
   sort = 'Highest Rated',
-  period = 'AllTime'
+  period = 'AllTime',
+  baseModel = ''
 }) => {
   return makeRequest('/models', {
     limit,
@@ -105,8 +108,36 @@ export const getModels = async ({
     tag,
     types,
     sort,
-    period
+    period,
+    baseModel
   });
+};
+
+export const getVideos = async ({
+  limit = 20,
+  page = 1,
+  nsfw = false,
+  sort = 'Most Reactions',
+  period = 'AllTime',
+  query = '',
+  username = '',
+  modelId = '',
+  baseModel = ''
+}) => {
+  const params = {
+    limit,
+    page,
+    nsfw,
+    sort,
+    period,
+    username,
+    modelId,
+    baseModel
+  };
+  if (query) {
+    params.query = query;
+  }
+  return makeRequest('/videos', params);
 };
 
 // Get specific model
@@ -161,6 +192,7 @@ export const checkApiKey = async () => {
 
 export default {
   getImages,
+  getVideos,
   getTrendingImages,
   getModels,
   getModel,
