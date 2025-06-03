@@ -17,15 +17,15 @@ const ComfyUIEditor = () => {
   const checkConnection = async () => {
     setStatus("loading");
     try {
-      // Try to fetch the status endpoint
-      const response = await fetch(`${comfyuiUrl}/system_stats`);
-      if (response.ok) {
+      // Use backend proxy to avoid CORS issues when checking status
+      const resp = await fetch("/api/comfyui/status");
+      const data = await resp.json();
+      if (data?.payload?.status === "online") {
         setStatus("connected");
         return true;
-      } else {
-        setStatus("disconnected");
-        return false;
       }
+      setStatus("disconnected");
+      return false;
     } catch (error) {
       console.error("Error checking ComfyUI connection:", error);
       setStatus("disconnected");
