@@ -5,12 +5,16 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 // Create an axios instance that includes the auth token in the header
 const authAxios = axios.create();
 
-// Add a request interceptor to include the auth token
+// Add a request interceptor to include the auth token and ComfyUI URL
 authAxios.interceptors.request.use(
   config => {
     const user = JSON.parse(localStorage.getItem('comfyui_user'));
     if (user && user.token) {
       config.headers['Authorization'] = `Bearer ${user.token}`;
+    }
+    const comfyUrl = localStorage.getItem('comfyuiUrl');
+    if (comfyUrl) {
+      config.headers['X-Comfyui-Url'] = comfyUrl;
     }
     return config;
   },

@@ -199,6 +199,15 @@ async def store_civitai_key(api_key: str) -> None:
 
 COMFYUI_BASE_URL = os.environ.get("COMFYUI_BASE_URL", "http://localhost:8188")
 
+
+def get_comfyui_url(request: Request) -> str:
+    """Return the ComfyUI base URL, allowing override via header or query."""
+    return (
+        request.headers.get("X-Comfyui-Url")
+        or request.query_params.get("base_url")
+        or COMFYUI_BASE_URL
+    )
+
 app = FastAPI()
 init_db()
 api_router = APIRouter(prefix="/api")
@@ -617,18 +626,19 @@ async def progress_stream(request: Request, job_id: str):
 
 
 @api_router.post("/comfyui/prompt")
-async def proxy_comfyui_prompt(payload: Dict[str, Any]):
+async def proxy_comfyui_prompt(request: Request, payload: Dict[str, Any]):
     """Proxy prompt submission to the ComfyUI backend."""
     start = datetime.utcnow().timestamp()
     try:
-        resp = requests.post(f"{COMFYUI_BASE_URL}/prompt", json=payload, timeout=30)
+        base = get_comfyui_url(request)
+        resp = requests.post(f"{base}/prompt", json=payload, timeout=30)
         data = resp.json()
-        log_backend_call("POST", f"{COMFYUI_BASE_URL}/prompt", payload, data, resp.status_code, start)
+        log_backend_call("POST", f"{base}/prompt", payload, data, resp.status_code, start)
         return api_response(data)
     except Exception as exc:
         log_backend_call(
             "POST",
-            f"{COMFYUI_BASE_URL}/prompt",
+            f"{base}/prompt",
             payload,
             {"error": str(exc)},
             500,
@@ -638,18 +648,19 @@ async def proxy_comfyui_prompt(payload: Dict[str, Any]):
 
 
 @api_router.get("/comfyui/history")
-async def proxy_comfyui_history():
+async def proxy_comfyui_history(request: Request):
     """Proxy generation history from ComfyUI."""
     start = datetime.utcnow().timestamp()
     try:
-        resp = requests.get(f"{COMFYUI_BASE_URL}/history", timeout=30)
+        base = get_comfyui_url(request)
+        resp = requests.get(f"{base}/history", timeout=30)
         data = resp.json()
-        log_backend_call("GET", f"{COMFYUI_BASE_URL}/history", None, data, resp.status_code, start)
+        log_backend_call("GET", f"{base}/history", None, data, resp.status_code, start)
         return api_response(data)
     except Exception as exc:
         log_backend_call(
             "GET",
-            f"{COMFYUI_BASE_URL}/history",
+            f"{base}/history",
             None,
             {"error": str(exc)},
             500,
@@ -659,18 +670,19 @@ async def proxy_comfyui_history():
 
 
 @api_router.get("/comfyui/queue")
-async def proxy_comfyui_queue():
+async def proxy_comfyui_queue(request: Request):
     """Proxy queue state from ComfyUI."""
     start = datetime.utcnow().timestamp()
     try:
-        resp = requests.get(f"{COMFYUI_BASE_URL}/queue", timeout=30)
+        base = get_comfyui_url(request)
+        resp = requests.get(f"{base}/queue", timeout=30)
         data = resp.json()
-        log_backend_call("GET", f"{COMFYUI_BASE_URL}/queue", None, data, resp.status_code, start)
+        log_backend_call("GET", f"{base}/queue", None, data, resp.status_code, start)
         return api_response(data)
     except Exception as exc:
         log_backend_call(
             "GET",
-            f"{COMFYUI_BASE_URL}/queue",
+            f"{base}/queue",
             None,
             {"error": str(exc)},
             500,
@@ -680,18 +692,19 @@ async def proxy_comfyui_queue():
 
 
 @api_router.get("/comfyui/status")
-async def comfyui_status():
+async def comfyui_status(request: Request):
     """Return basic status information about the configured ComfyUI server."""
     start = datetime.utcnow().timestamp()
     try:
-        resp = requests.get(f"{COMFYUI_BASE_URL}/queue", timeout=5)
+        base = get_comfyui_url(request)
+        resp = requests.get(f"{base}/queue", timeout=5)
         resp.raise_for_status()
-        log_backend_call("GET", f"{COMFYUI_BASE_URL}/queue", None, {"status": "ok"}, resp.status_code, start)
+        log_backend_call("GET", f"{base}/queue", None, {"status": "ok"}, resp.status_code, start)
         return api_response({"status": "online"})
     except Exception as exc:  # pragma: no cover - network failures
         log_backend_call(
             "GET",
-            f"{COMFYUI_BASE_URL}/queue",
+            f"{base}/queue",
             None,
             {"error": str(exc)},
             500,
@@ -701,15 +714,16 @@ async def comfyui_status():
 
 
 @api_router.post("/comfyui/restart")
-async def comfyui_restart():
+async def comfyui_restart(request: Request):
     """Attempt to restart the configured ComfyUI server."""
     start = datetime.utcnow().timestamp()
     try:
-        resp = requests.post(f"{COMFYUI_BASE_URL}/restart", timeout=5)
+        base = get_comfyui_url(request)
+        resp = requests.post(f"{base}/restart", timeout=5)
         data = resp.json() if resp.content else {"status": "ok"}
         log_backend_call(
             "POST",
-            f"{COMFYUI_BASE_URL}/restart",
+            f"{base}/restart",
             None,
             data,
             resp.status_code,
@@ -719,7 +733,7 @@ async def comfyui_restart():
     except Exception as exc:  # pragma: no cover - restart may fail
         log_backend_call(
             "POST",
-            f"{COMFYUI_BASE_URL}/restart",
+            f"{base}/restart",
             None,
             {"error": str(exc)},
             500,
