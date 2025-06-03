@@ -700,6 +700,34 @@ async def comfyui_status():
         return api_response({"status": "offline", "error": str(exc)})
 
 
+@api_router.post("/comfyui/restart")
+async def comfyui_restart():
+    """Attempt to restart the configured ComfyUI server."""
+    start = datetime.utcnow().timestamp()
+    try:
+        resp = requests.post(f"{COMFYUI_BASE_URL}/restart", timeout=5)
+        data = resp.json() if resp.content else {"status": "ok"}
+        log_backend_call(
+            "POST",
+            f"{COMFYUI_BASE_URL}/restart",
+            None,
+            data,
+            resp.status_code,
+            start,
+        )
+        return api_response(data)
+    except Exception as exc:  # pragma: no cover - restart may fail
+        log_backend_call(
+            "POST",
+            f"{COMFYUI_BASE_URL}/restart",
+            None,
+            {"error": str(exc)},
+            500,
+            start,
+        )
+        return api_response({"status": "error", "error": str(exc)}, success=False)
+
+
 # ---------------------------------------------------------------------------
 # Civitai integration
 # ---------------------------------------------------------------------------

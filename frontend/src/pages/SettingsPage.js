@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Toast from '../components/Toast';
 import civitaiService from '../services/civitaiService';
 import backupService from '../services/backupService';
+import workflowService from '../services/workflowService';
 
 const SettingsPage = () => {
   const [toast, setToast] = useState(null);
@@ -22,6 +23,13 @@ const SettingsPage = () => {
     return saved === 'true';
   });
   const [restoreFile, setRestoreFile] = useState(null);
+
+  const [comfyuiUrl, setComfyuiUrl] = useState(() => localStorage.getItem('comfyuiUrl') || 'http://localhost:8188');
+  const [connectionStatus, setConnectionStatus] = useState('offline');
+  const [autoReconnect, setAutoReconnect] = useState(() => {
+    const saved = localStorage.getItem('cj_auto_reconnect');
+    return saved === 'true';
+  });
 
   const [paths, setPaths] = useState({
     workflowsDir: '',
@@ -68,6 +76,23 @@ const SettingsPage = () => {
   useEffect(() => {
     localStorage.setItem('cj_civitai_show_nsfw', civitaiShowNsfw.toString());
   }, [civitaiShowNsfw]);
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      const data = await workflowService.getComfyUIStatus();
+      setConnectionStatus(data?.payload?.status || data.status || 'offline');
+    };
+    checkStatus();
+    let interval;
+    if (autoReconnect) {
+      interval = setInterval(checkStatus, 5000);
+    }
+    return () => interval && clearInterval(interval);
+  }, [autoReconnect]);
+
+  useEffect(() => {
+    localStorage.setItem('cj_auto_reconnect', autoReconnect.toString());
+  }, [autoReconnect]);
   
   
   const handlePreferenceChange = (e) => {
@@ -161,6 +186,17 @@ const SettingsPage = () => {
       showToast('Failed to restore backup', 'error');
     }
   };
+
+  const handleConnectBackend = async () => {
+    localStorage.setItem('comfyuiUrl', comfyuiUrl);
+    const data = await workflowService.getComfyUIStatus();
+    setConnectionStatus(data?.payload?.status || data.status || 'offline');
+  };
+
+  const handleRestartBackend = async () => {
+    await workflowService.restartComfyUI();
+    showToast('Restart command sent', 'info');
+  };
   
   
   const showToast = (message, type = 'info') => {
@@ -208,6 +244,12 @@ const SettingsPage = () => {
             onClick={() => setActiveTab('paths')}
           >
             Paths
+          </button>
+          <button
+            className={`settings-tab ${activeTab === 'backend' ? 'active' : ''}`}
+            onClick={() => setActiveTab('backend')}
+          >
+            Backend
           </button>
         </div>
         
@@ -292,23 +334,6 @@ const SettingsPage = () => {
               
               <div className="api-key-item">
                 <div className="api-key-info">
-                  <h3>ComfyUI API Key</h3>
-                  <p>Used to connect to your ComfyUI instance</p>
-                </div>
-                
-                <div className="api-key-value">
-                  <input 
-                    type="password" 
-                    value="●●●●●●●●●●●●●●●●" 
-                    readOnly 
-                  />
-                  <button className="show-button">Show</button>
-                  <button className="regenerate-button">Regenerate</button>
-                </div>
-              </div>
-              
-              <div className="api-key-item">
-                <div className="api-key-info">
                   <h3>CivitAI API Key</h3>
                   <p>Required for CivitAI integration</p>
                 </div>
@@ -390,6 +415,37 @@ const SettingsPage = () => {
 
                 <button type="submit" className="save-button">Save Paths</button>
               </form>
+            </div>
+          )}
+
+          {activeTab === 'backend' && (
+            <div className="settings-section">
+              <h2>Backend Connection</h2>
+              <div className="form-group">
+                <label htmlFor="comfyuiUrl">ComfyUI URL</label>
+                <input
+                  type="text"
+                  id="comfyuiUrl"
+                  value={comfyuiUrl}
+                  onChange={(e) => setComfyuiUrl(e.target.value)}
+                  placeholder="http://localhost:8188"
+                />
+                <button className="save-button" onClick={handleConnectBackend}>Save</button>
+              </div>
+              <p>Connection status: {connectionStatus}</p>
+              <div className="form-group checkbox-group">
+                <input
+                  type="checkbox"
+                  id="autoReconnect"
+                  checked={autoReconnect}
+                  onChange={(e) => {
+                    setAutoReconnect(e.target.checked);
+                    localStorage.setItem('cj_auto_reconnect', e.target.checked.toString());
+                  }}
+                />
+                <label htmlFor="autoReconnect">Auto-Reconnect</label>
+              </div>
+              <button className="save-button" onClick={handleRestartBackend}>Restart ComfyUI</button>
             </div>
           )}
           

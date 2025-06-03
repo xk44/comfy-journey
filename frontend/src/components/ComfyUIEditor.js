@@ -7,11 +7,18 @@ const ComfyUIEditor = () => {
   const iframeRef = useRef(null);
   
   useEffect(() => {
-    // Load ComfyUI URL from localStorage
     const savedUrl = localStorage.getItem('comfyuiUrl');
     if (savedUrl) {
       setComfyuiUrl(savedUrl);
     }
+    checkConnection();
+    const onStorage = (e) => {
+      if (e.key === 'comfyuiUrl') {
+        setComfyuiUrl(e.newValue);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   const checkConnection = async () => {
@@ -33,40 +40,17 @@ const ComfyUIEditor = () => {
     }
   };
   
-  const handleConnect = async () => {
-    localStorage.setItem('comfyuiUrl', comfyuiUrl);
-    const connected = await checkConnection();
-    
-    if (connected) {
-      if (iframeRef.current) {
-        iframeRef.current.src = comfyuiUrl;
-      }
-    } else {
-      // Show a message if the connection fails
-      alert(`Could not connect to ComfyUI at ${comfyuiUrl}. Please make sure ComfyUI is running and accessible.`);
+  useEffect(() => {
+    if (status === 'connected' && iframeRef.current) {
+      iframeRef.current.src = comfyuiUrl;
     }
-  };
+  }, [status, comfyuiUrl]);
   
   return (
     <div className={`comfyui-editor-container ${isFullscreen ? 'fullscreen' : ''}`}>
       <div className="comfyui-editor-header">
         <h2>ComfyUI Workflow Editor</h2>
         <div className="comfyui-editor-controls">
-          <div className="url-control">
-            <input 
-              type="text" 
-              value={comfyuiUrl} 
-              onChange={(e) => setComfyuiUrl(e.target.value)}
-              placeholder="ComfyUI URL"
-            />
-            <button 
-              onClick={handleConnect}
-              className={status === "loading" ? "loading" : ""}
-              disabled={status === "loading"}
-            >
-              {status === "loading" ? "Connecting..." : "Connect"}
-            </button>
-          </div>
           <button 
             className="fullscreen-button"
             onClick={() => setIsFullscreen(!isFullscreen)}
@@ -110,7 +94,7 @@ const ComfyUIEditor = () => {
                 : "Connect to your ComfyUI instance to edit workflows."}
             </p>
             <p className="comfyui-help">
-              Make sure ComfyUI is running and accessible at the URL above.
+              Make sure ComfyUI is running and check the Backend settings.
             </p>
           </div>
         )}
