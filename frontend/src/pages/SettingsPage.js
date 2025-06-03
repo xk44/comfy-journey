@@ -1,19 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 import civitaiService from '../services/civitaiService';
 import backupService from '../services/backupService';
 
 const SettingsPage = () => {
-  const { currentUser, updateProfile, logout } = useAuth();
   const [toast, setToast] = useState(null);
   
-  const [profile, setProfile] = useState({
-    name: '',
-    username: '',
-    email: '',
-    bio: ''
-  });
 
   const [preferences, setPreferences] = useState({
     darkMode: true,
@@ -37,18 +29,9 @@ const SettingsPage = () => {
     lorasDir: ''
   });
   
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState('preferences');
   
   useEffect(() => {
-    // Load user profile if available
-    if (currentUser) {
-      setProfile({
-        name: currentUser.name || '',
-        username: currentUser.username || '',
-        email: currentUser.email || '',
-        bio: currentUser.bio || ''
-      });
-    }
     
     // Load saved preferences from localStorage
     const savedPreferences = localStorage.getItem('comfyui_preferences');
@@ -70,7 +53,7 @@ const SettingsPage = () => {
         console.error('Error parsing saved paths:', err);
       }
     }
-  }, [currentUser]);
+  }, []);
 
   // Apply theme when preference changes
   useEffect(() => {
@@ -86,13 +69,6 @@ const SettingsPage = () => {
     localStorage.setItem('cj_civitai_show_nsfw', civitaiShowNsfw.toString());
   }, [civitaiShowNsfw]);
   
-  const handleProfileChange = (e) => {
-    const { name, value } = e.target;
-    setProfile({
-      ...profile,
-      [name]: value
-    });
-  };
   
   const handlePreferenceChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -101,6 +77,7 @@ const SettingsPage = () => {
       [name]: type === 'checkbox' ? checked : value
     };
     setPreferences(updated);
+    localStorage.setItem('comfyui_preferences', JSON.stringify(updated));
     if (name === 'darkMode') {
       if (type === 'checkbox' ? checked : value) {
         document.body.classList.remove('light-theme');
@@ -118,20 +95,6 @@ const SettingsPage = () => {
     });
   };
   
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
-    
-    try {
-      // In a real implementation, you would call the API
-      // await updateProfile(profile);
-      
-      console.log('Profile updated:', profile);
-      showToast('Profile updated successfully', 'success');
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      showToast('Failed to update profile. Please try again.', 'error');
-    }
-  };
   
   const handleSavePreferences = (e) => {
     e.preventDefault();
@@ -199,12 +162,6 @@ const SettingsPage = () => {
     }
   };
   
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to log out?')) {
-      logout();
-      window.location.href = '/';
-    }
-  };
   
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
@@ -229,12 +186,6 @@ const SettingsPage = () => {
       <div className="settings-container">
         <div className="settings-tabs">
           <button 
-            className={`settings-tab ${activeTab === 'profile' ? 'active' : ''}`}
-            onClick={() => setActiveTab('profile')}
-          >
-            Profile
-          </button>
-          <button 
             className={`settings-tab ${activeTab === 'preferences' ? 'active' : ''}`}
             onClick={() => setActiveTab('preferences')}
           >
@@ -258,72 +209,9 @@ const SettingsPage = () => {
           >
             Paths
           </button>
-          <button
-            className={`settings-tab ${activeTab === 'account' ? 'active' : ''}`}
-            onClick={() => setActiveTab('account')}
-          >
-            Account
-          </button>
         </div>
         
         <div className="settings-content">
-          {activeTab === 'profile' && (
-            <div className="settings-section">
-              <h2>Profile Settings</h2>
-              
-              <form className="settings-form" onSubmit={handleSaveProfile}>
-                <div className="form-group">
-                  <label htmlFor="name">Name</label>
-                  <input 
-                    type="text" 
-                    id="name" 
-                    name="name"
-                    value={profile.name}
-                    onChange={handleProfileChange}
-                    placeholder="Your name" 
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="username">Username</label>
-                  <input 
-                    type="text" 
-                    id="username" 
-                    name="username"
-                    value={profile.username}
-                    onChange={handleProfileChange}
-                    placeholder="Your username" 
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="email">Email</label>
-                  <input 
-                    type="email" 
-                    id="email" 
-                    name="email"
-                    value={profile.email}
-                    onChange={handleProfileChange}
-                    placeholder="Your email" 
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="bio">Bio</label>
-                  <textarea 
-                    id="bio" 
-                    name="bio"
-                    value={profile.bio}
-                    onChange={handleProfileChange}
-                    placeholder="Tell us about yourself" 
-                    rows={4}
-                  />
-                </div>
-                
-                <button type="submit" className="save-button">Save Profile</button>
-              </form>
-            </div>
-          )}
           
           {activeTab === 'preferences' && (
             <div className="settings-section">
@@ -505,34 +393,6 @@ const SettingsPage = () => {
             </div>
           )}
           
-          {activeTab === 'account' && (
-            <div className="settings-section">
-              <h2>Account Settings</h2>
-              
-              <div className="account-info">
-                <div className="info-item">
-                  <span className="info-label">Account Type:</span>
-                  <span className="info-value">Free Plan</span>
-                </div>
-                
-                <div className="info-item">
-                  <span className="info-label">Join Date:</span>
-                  <span className="info-value">May 10, 2023</span>
-                </div>
-                
-                <div className="info-item">
-                  <span className="info-label">Images Generated:</span>
-                  <span className="info-value">127</span>
-                </div>
-              </div>
-              
-              <div className="account-actions">
-                <button className="upgrade-button">Upgrade to Pro</button>
-                <button className="delete-account-button">Delete Account</button>
-                <button className="logout-button" onClick={handleLogout}>Log Out</button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
