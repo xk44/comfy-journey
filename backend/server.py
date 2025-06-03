@@ -203,6 +203,7 @@ async def store_civitai_key(api_key: str) -> None:
 # ---------------------------------------------------------------------------
 
 COMFYUI_BASE_URL = os.environ.get("COMFYUI_BASE_URL", "http://localhost:8188")
+COMFYUI_API_KEY = os.environ.get("COMFYUI_API_KEY")
 
 
 def get_comfyui_url(request: Request) -> str:
@@ -212,6 +213,19 @@ def get_comfyui_url(request: Request) -> str:
         or request.query_params.get("base_url")
         or COMFYUI_BASE_URL
     )
+
+
+def get_comfyui_api_key(request: Request) -> Optional[str]:
+    """Return the API key for ComfyUI from header or environment."""
+    return request.headers.get("X-Comfyui-Key") or COMFYUI_API_KEY
+
+
+def _inject_comfyui_api_key(payload: Dict[str, Any], api_key: Optional[str]) -> None:
+    """Insert the API key into the payload's extra_data if set."""
+    if not api_key:
+        return
+    extra = payload.setdefault("extra_data", {})
+    extra.setdefault("api_key_comfy_org", api_key)
 
 
 app = FastAPI()
@@ -662,6 +676,8 @@ async def proxy_comfyui_prompt(request: Request, payload: Dict[str, Any]):
     start = datetime.utcnow().timestamp()
     try:
         base = get_comfyui_url(request)
+        api_key = get_comfyui_api_key(request)
+        _inject_comfyui_api_key(payload, api_key)
         resp = requests.post(f"{base}/prompt", json=payload, timeout=30)
         data = resp.json()
         log_backend_call(
