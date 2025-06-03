@@ -4,6 +4,7 @@ import Toast from '../components/Toast';
 import workflowService from '../services/workflowService';
 import actionService from '../services/actionService';
 import downloadService from '../services/downloadService';
+import modelService from '../services/modelService';
 
 const WorkflowsPage = () => {
   const [workflows, setWorkflows] = useState([]);
@@ -26,6 +27,9 @@ const WorkflowsPage = () => {
     'Upscale': { name: 'Upscale', assigned: 'None' },
     'Zoom Out': { name: 'Zoom Out', assigned: 'None' }
   });
+
+  const [models, setModels] = useState([]);
+  const [modelDefaults, setModelDefaults] = useState({});
   
   const { currentUser } = useAuth();
   
@@ -80,6 +84,17 @@ const WorkflowsPage = () => {
           };
         });
         setActionMappings(mapping);
+
+        const mds = await modelService.getModels();
+        setModels(mds || []);
+        const stored = localStorage.getItem('cj_model_defaults');
+        if (stored) {
+          try {
+            setModelDefaults(JSON.parse(stored));
+          } catch (err) {
+            console.error('Error parsing model defaults', err);
+          }
+        }
 
         setLoading(false);
       } catch (error) {
@@ -300,6 +315,20 @@ const WorkflowsPage = () => {
       showToast('Download failed', 'error');
     }
   };
+
+  const handleDefaultChange = (modelType, func, wfId) => {
+    setModelDefaults((prev) => {
+      const updated = { ...prev };
+      if (!updated[modelType]) updated[modelType] = {};
+      updated[modelType][func] = wfId;
+      return updated;
+    });
+  };
+
+  const saveModelDefaults = () => {
+    localStorage.setItem('cj_model_defaults', JSON.stringify(modelDefaults));
+    showToast('Defaults saved', 'success');
+  };
   
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
@@ -431,12 +460,36 @@ const WorkflowsPage = () => {
             </div>
           ))}
           
-          <button 
+          <button
             className="add-action-button"
             onClick={() => showToast('Adding custom actions not implemented yet', 'info')}
           >
             Add Action
           </button>
+        </div>
+
+        <div className="model-defaults">
+          <h2>Model Defaults</h2>
+          {models.map((m) => (
+            <div key={m.id} className="model-default-item">
+              <h3>{m.name}</h3>
+              {['txt2img','img2img','inpainting','txt2video','img2video'].map(func => (
+                <div key={func} className="model-default-select">
+                  <span className="func-name">{func}</span>
+                  <select
+                    value={modelDefaults?.[m.type]?.[func] || ''}
+                    onChange={(e) => handleDefaultChange(m.type, func, e.target.value)}
+                  >
+                    <option value="">None</option>
+                    {workflows.map(wf => (
+                      <option key={wf.id} value={wf.id}>{wf.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          ))}
+          <button className="save-param-button" onClick={saveModelDefaults}>Save Defaults</button>
         </div>
       </div>
     </div>

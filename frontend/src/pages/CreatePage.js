@@ -5,6 +5,7 @@ import Toast from '../components/Toast';
 import parameterService from '../services/parameterService';
 import workflowService from '../services/workflowService';
 import progressService from '../services/progressService';
+import modelService from '../services/modelService';
 
 const CreatePage = () => {
   const [prompt, setPrompt] = useState('');
@@ -16,6 +17,9 @@ const CreatePage = () => {
   const [toast, setToast] = useState(null);
   const [parameterMappings, setParameterMappings] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [models, setModels] = useState([]);
+  const [selectedModel, setSelectedModel] = useState('');
+  const [showModelSelector, setShowModelSelector] = useState(false);
   const {
     history: promptHistory,
     index: historyIndex,
@@ -81,6 +85,20 @@ const CreatePage = () => {
     };
 
     fetchParameterMappings();
+
+    const fetchModels = async () => {
+      try {
+        const data = await modelService.getModels();
+        setModels(data || []);
+        if (data && data.length > 0) {
+          setSelectedModel(data[0].id);
+        }
+      } catch (err) {
+        console.error('Error fetching models:', err);
+      }
+    };
+
+    fetchModels();
 
     const mockJobs = [
       {
@@ -279,11 +297,33 @@ const CreatePage = () => {
               </svg>
             </button>
             
-            <button className="tool-button" title="Parameters">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
-              </svg>
-            </button>
+          <button className="tool-button" title="Parameters">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+            </svg>
+          </button>
+
+          <button
+            className="tool-button"
+            title="Select Model"
+            onClick={() => setShowModelSelector(!showModelSelector)}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6h15M4.5 12h15m-15 6h15" />
+            </svg>
+          </button>
+
+          {showModelSelector && (
+            <select
+              className="model-select"
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+            >
+              {models.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          )}
             
             <button 
               className="generate-button"

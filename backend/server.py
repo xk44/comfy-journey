@@ -152,6 +152,15 @@ SAMPLE_WORKFLOWS = [
     },
 ]
 
+# Sample models used for demo and tests
+SAMPLE_MODELS = [
+    {"id": "sd15", "name": "Stable Diffusion 1.5", "type": "SD1.5"},
+    {"id": "sdxl", "name": "Stable Diffusion XL", "type": "SDXL"},
+    {"id": "illustrious", "name": "Illustrious", "type": "Illustrious"},
+    {"id": "pony", "name": "Pony Diffusion", "type": "Pony"},
+    {"id": "flux", "name": "Flux", "type": "Flux"},
+]
+
 
 # ---------------------------------------------------------------------------
 # Helpers for encrypted Civitai API key storage
@@ -294,6 +303,12 @@ class ParameterMapping(BaseModel):
     value_template: str = "{value}"
     injection_mode: Optional[str] = None
     description: str = ""
+
+
+class ModelInfo(BaseModel):
+    id: str
+    name: str
+    type: str
 
 
 # ---------------------------------------------------------------------------
@@ -502,6 +517,12 @@ async def get_outputs(dbs: Session = Depends(get_sql_db)):
 async def sample_workflows():
     """Return a list of example workflows for the frontend demo."""
     return api_response(SAMPLE_WORKFLOWS)
+
+
+@api_router.get("/models", response_model=List[ModelInfo])
+async def get_models():
+    """Return a list of available models."""
+    return api_response(SAMPLE_MODELS)
 
 
 # ---------------------------------------------------------------------------
