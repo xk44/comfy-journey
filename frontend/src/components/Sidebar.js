@@ -27,6 +27,15 @@ const Sidebar = () => {
               Explore
             </NavLink>
           </li>
+
+          <li className="nav-item">
+            <NavLink to="/models" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 3.75h15m-15 4.5h15m-15 4.5h15m-15 4.5h15" />
+              </svg>
+              Models
+            </NavLink>
+          </li>
           
           <li className="nav-item">
             <NavLink to="/gallery" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>

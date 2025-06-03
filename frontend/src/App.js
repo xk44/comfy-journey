@@ -14,6 +14,7 @@ import WorkflowsPage from './pages/WorkflowsPage';
 import ParametersPage from './pages/ParametersPage';
 import BackendManagerPage from './pages/BackendManagerPage';
 import SettingsPage from './pages/SettingsPage';
+import ModelsPage from './pages/ModelsPage';
 
 // Context
 import { AuthProvider } from './contexts/AuthContext';
@@ -44,6 +45,7 @@ function App() {
                 } />
                 <Route path="/workflows" element={<WorkflowsPage />} />
                 <Route path="/parameters" element={<ParametersPage />} />
+                <Route path="/models" element={<ModelsPage />} />
                 <Route path="/backend" element={<BackendManagerPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
