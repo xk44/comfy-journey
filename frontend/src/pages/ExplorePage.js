@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 import civitaiService from '../services/civitaiService';
+import downloadService from '../services/downloadService';
 
 const ExplorePage = () => {
   const [activeTab, setActiveTab] = useState('Images');
   const [images, setImages] = useState([]);
   const [models, setModels] = useState([]);
+  const [workflows, setWorkflows] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -36,9 +38,11 @@ const ExplorePage = () => {
 
         const imagesRes = await civitaiService.getImages({ limit: 20, page });
         const modelsRes = await civitaiService.getModels({ limit: 20, page });
+        const workflowsRes = await civitaiService.getModels({ limit: 20, page, types: 'Workflow' });
 
         const newImages = imagesRes.items || imagesRes.data || imagesRes;
         const newModels = modelsRes.items || modelsRes.data || modelsRes;
+        const newWorkflows = workflowsRes.items || workflowsRes.data || workflowsRes;
 
         // Deduplicate results when appending
         setImages(prev => {
@@ -51,6 +55,12 @@ const ExplorePage = () => {
           if (page === 1) return newModels;
           const ids = new Set(prev.map(m => m.id));
           const merged = [...prev, ...newModels.filter(m => !ids.has(m.id))];
+          return merged;
+        });
+        setWorkflows(prev => {
+          if (page === 1) return newWorkflows;
+          const ids = new Set(prev.map(w => w.id));
+          const merged = [...prev, ...newWorkflows.filter(w => !ids.has(w.id))];
           return merged;
         });
         setLoading(false);
@@ -109,6 +119,28 @@ const ExplorePage = () => {
     // Navigate to the model detail page
     console.log('Model clicked:', model);
   };
+
+  const handleDownloadModel = async (model) => {
+    const paths = JSON.parse(localStorage.getItem('cj_paths') || '{}');
+    let dir = paths.checkpointsDir;
+    if (model.type && model.type.toLowerCase().includes('lora')) {
+      dir = paths.lorasDir;
+    }
+    if (model.type && model.type.toLowerCase().includes('workflow')) {
+      dir = paths.workflowsDir;
+    }
+    if (!dir) {
+      showToast('Download path not set in Settings', 'error');
+      return;
+    }
+    try {
+      await downloadService.downloadFile(model.downloadUrl || model.url, dir);
+      showToast('Download started', 'success');
+    } catch (err) {
+      console.error('Download failed', err);
+      showToast('Download failed', 'error');
+    }
+  };
   
   const filteredImages = images.filter(
     img => img.prompt.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -119,6 +151,12 @@ const ExplorePage = () => {
     model => model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
              model.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
              model.creator.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredWorkflows = workflows.filter(
+    wf => wf.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           wf.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           (wf.creator || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
   
   return (
@@ -139,11 +177,17 @@ const ExplorePage = () => {
           >
             Images
           </button>
-          <button 
+          <button
             className={`explore-tab ${activeTab === 'Models' ? 'active' : ''}`}
             onClick={() => setActiveTab('Models')}
           >
             Models
+          </button>
+          <button
+            className={`explore-tab ${activeTab === 'Workflows' ? 'active' : ''}`}
+            onClick={() => setActiveTab('Workflows')}
+          >
+            Workflows
           </button>
         </div>
         
@@ -252,7 +296,36 @@ const ExplorePage = () => {
                     </span>
                   </div>
                   
-                  <button className="download-model-button">
+                  <button className="download-model-button" onClick={(e) => { e.stopPropagation(); handleDownloadModel(model); }}>
+                    Download
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'Workflows' && (
+        <>
+          {loading ? (
+            <div className="loading-container">
+              <div className="spinner"></div>
+            </div>
+          ) : filteredWorkflows.length === 0 ? (
+            <div className="empty-state">
+              <h2>No Workflows Found</h2>
+              <p>Try adjusting your search query</p>
+            </div>
+          ) : (
+            <div className="models-grid">
+              {filteredWorkflows.map(wf => (
+                <div key={wf.id} className="model-card" onClick={() => handleModelClick(wf)}>
+                  <div className="model-header">
+                    <h3 className="model-name">{wf.name}</h3>
+                  </div>
+                  <p className="model-description">{wf.description}</p>
+                  <button className="download-model-button" onClick={(e) => { e.stopPropagation(); handleDownloadModel(wf); }}>
                     Download
                   </button>
                 </div>
