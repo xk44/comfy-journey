@@ -273,6 +273,12 @@ class CivitaiKey(BaseModel):
     api_key: str = Field(..., min_length=1)
 
 
+class DownloadRequest(BaseModel):
+    url: str
+    path: str
+    filename: Optional[str] = None
+
+
 class ParameterMapping(BaseModel):
     """Mapping of a shortcode parameter to a workflow node parameter."""
 
@@ -706,6 +712,23 @@ async def upload_backup(request: Request):
     finally:
         os.unlink(tmp.name)
     return api_response({"message": "Restore completed"})
+
+
+@api_router.post("/download")
+async def download_file(req: DownloadRequest):
+    filename = req.filename or os.path.basename(req.url.split("?")[0])
+    os.makedirs(req.path, exist_ok=True)
+    dest = os.path.join(req.path, filename)
+    try:
+        with requests.get(req.url, stream=True, timeout=30) as r:
+            r.raise_for_status()
+            with open(dest, "wb") as fh:
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk:
+                        fh.write(chunk)
+    except Exception as exc:  # pragma: no cover - network dependent
+        raise HTTPException(status_code=500, detail=str(exc))
+    return api_response({"saved_to": dest})
 
 
 # ---------------------------------------------------------------------------

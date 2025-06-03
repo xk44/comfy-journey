@@ -26,6 +26,12 @@ const SettingsPage = () => {
 
   const [civitaiKey, setCivitaiKey] = useState('');
   const [restoreFile, setRestoreFile] = useState(null);
+
+  const [paths, setPaths] = useState({
+    workflowsDir: '',
+    checkpointsDir: '',
+    lorasDir: ''
+  });
   
   const [activeTab, setActiveTab] = useState('profile');
   
@@ -48,6 +54,16 @@ const SettingsPage = () => {
         setPreferences(prefs);
       } catch (error) {
         console.error('Error parsing saved preferences:', error);
+      }
+    }
+
+    const savedPaths = localStorage.getItem('cj_paths');
+    if (savedPaths) {
+      try {
+        const p = JSON.parse(savedPaths);
+        setPaths(p);
+      } catch (err) {
+        console.error('Error parsing saved paths:', err);
       }
     }
   }, [currentUser]);
@@ -84,6 +100,14 @@ const SettingsPage = () => {
       }
     }
   };
+
+  const handlePathChange = (e) => {
+    const { name, value } = e.target;
+    setPaths({
+      ...paths,
+      [name]: value
+    });
+  };
   
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -112,6 +136,17 @@ const SettingsPage = () => {
     } catch (error) {
       console.error('Error saving preferences:', error);
       showToast('Failed to save preferences. Please try again.', 'error');
+    }
+  };
+
+  const handleSavePaths = (e) => {
+    e.preventDefault();
+    try {
+      localStorage.setItem('cj_paths', JSON.stringify(paths));
+      showToast('Paths saved', 'success');
+    } catch (err) {
+      console.error('Error saving paths:', err);
+      showToast('Failed to save paths', 'error');
     }
   };
 
@@ -207,6 +242,12 @@ const SettingsPage = () => {
             onClick={() => setActiveTab('backup')}
           >
             Backup
+          </button>
+          <button
+            className={`settings-tab ${activeTab === 'paths' ? 'active' : ''}`}
+            onClick={() => setActiveTab('paths')}
+          >
+            Paths
           </button>
           <button
             className={`settings-tab ${activeTab === 'account' ? 'active' : ''}`}
@@ -411,6 +452,52 @@ const SettingsPage = () => {
                 <input type="file" onChange={e => setRestoreFile(e.target.files[0])} />
                 <button className="save-button" onClick={handleRestoreBackup}>Restore</button>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'paths' && (
+            <div className="settings-section">
+              <h2>Download Paths</h2>
+
+              <form className="settings-form" onSubmit={handleSavePaths}>
+                <div className="form-group">
+                  <label htmlFor="workflowsDir">Workflows Directory</label>
+                  <input
+                    type="text"
+                    id="workflowsDir"
+                    name="workflowsDir"
+                    value={paths.workflowsDir}
+                    onChange={handlePathChange}
+                    placeholder="/path/to/workflows"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="checkpointsDir">Checkpoints Directory</label>
+                  <input
+                    type="text"
+                    id="checkpointsDir"
+                    name="checkpointsDir"
+                    value={paths.checkpointsDir}
+                    onChange={handlePathChange}
+                    placeholder="/path/to/checkpoints"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="lorasDir">Loras Directory</label>
+                  <input
+                    type="text"
+                    id="lorasDir"
+                    name="lorasDir"
+                    value={paths.lorasDir}
+                    onChange={handlePathChange}
+                    placeholder="/path/to/loras"
+                  />
+                </div>
+
+                <button type="submit" className="save-button">Save Paths</button>
+              </form>
             </div>
           )}
           

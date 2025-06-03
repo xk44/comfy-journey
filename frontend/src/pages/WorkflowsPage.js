@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 import workflowService from '../services/workflowService';
 import actionService from '../services/actionService';
+import downloadService from '../services/downloadService';
 
 const WorkflowsPage = () => {
   const [workflows, setWorkflows] = useState([]);
@@ -279,6 +280,21 @@ const WorkflowsPage = () => {
       }
     }
   };
+
+  const handleDownloadWorkflow = async (wf) => {
+    const paths = JSON.parse(localStorage.getItem('cj_paths') || '{}');
+    if (!paths.workflowsDir) {
+      showToast('Workflows directory not set in Settings', 'error');
+      return;
+    }
+    try {
+      await downloadService.downloadFile(wf.downloadUrl || wf.url, paths.workflowsDir, `${wf.name}.json`);
+      showToast('Download started', 'success');
+    } catch (err) {
+      console.error('Download failed', err);
+      showToast('Download failed', 'error');
+    }
+  };
   
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
@@ -362,10 +378,11 @@ const WorkflowsPage = () => {
                 <h3 className="workflow-name">{workflow.name}</h3>
                 <p className="workflow-description">{workflow.description}</p>
               </div>
-              
+
               <div className="workflow-actions">
                 <button className="edit-button" onClick={() => showToast('Edit functionality not implemented yet', 'info')}>Edit</button>
                 <button className="delete-button" onClick={() => handleDeleteWorkflow(workflow.id)}>Delete</button>
+                <button className="download-button" onClick={() => handleDownloadWorkflow(workflow)}>Download</button>
               </div>
             </div>
           ))}
