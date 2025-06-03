@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 import workflowService from '../services/workflowService';
@@ -15,6 +15,7 @@ const WorkflowsPage = () => {
     description: '',
     file: null
   });
+  const fileInputRef = useRef(null);
   
   // For action mappings
   const [actionMappings, setActionMappings] = useState({
@@ -105,6 +106,10 @@ const WorkflowsPage = () => {
       ...newWorkflow,
       file: e.target.files[0]
     });
+  };
+
+  const handleBrowseClick = () => {
+    fileInputRef.current?.click();
   };
   
   const handleAddWorkflow = async () => {
@@ -351,14 +356,15 @@ const WorkflowsPage = () => {
             <div className="form-group">
               <label htmlFor="workflowFile">Workflow File</label>
               <div className="file-input-container">
-                <button className="browse-button">Browse...</button>
+                <button className="browse-button" onClick={handleBrowseClick}>Browse...</button>
                 <span className="file-name">{newWorkflow.file ? newWorkflow.file.name : 'No file selected.'}</span>
-                <input 
-                  type="file" 
-                  id="workflowFile" 
+                <input
+                  type="file"
+                  id="workflowFile"
+                  ref={fileInputRef}
                   onChange={handleFileChange}
                   className="hidden-file-input"
-                  accept=".json" 
+                  accept=".json"
                 />
               </div>
             </div>
@@ -402,7 +408,7 @@ const WorkflowsPage = () => {
                 <select
                   className="workflow-select"
                   onChange={(e) => handleUpdateActionMapping(actionName, e.target.value)}
-                  value={workflows.find(w => w.name === action.assigned)?.id || ''}
+                  value={action.workflow_id || ''}
                 >
                   <option value="">Select Workflow</option>
                   {workflows.map(workflow => (
