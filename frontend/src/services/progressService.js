@@ -1,6 +1,6 @@
 import authService from './authService';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || "";
+const API_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 
 // Subscribe to progress updates for a job using Server-Sent Events
 const subscribe = (jobId, onUpdate, onError) => {
