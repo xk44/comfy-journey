@@ -5,6 +5,12 @@ const API_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 // Create an axios instance that includes the auth token in the header
 const authAxios = axios.create();
 
+// Helper to read the CSRF token set by the backend middleware
+const getCsrfToken = () => {
+  const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
 // Add a request interceptor to include the auth token and ComfyUI URL
 authAxios.interceptors.request.use(
   config => {
@@ -15,6 +21,10 @@ authAxios.interceptors.request.use(
     const comfyUrl = localStorage.getItem('comfyuiUrl');
     if (comfyUrl) {
       config.headers['X-Comfyui-Url'] = comfyUrl;
+    }
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      config.headers['x-csrf-token'] = csrfToken;
     }
     return config;
   },
