@@ -420,7 +420,10 @@ const SettingsPage = () => {
 
           {activeTab === 'backend' && (
             <div className="settings-section">
-              <h2>Backend Connection</h2>
+              <h2 className="backend-header">
+                Backend Connection
+                <span className={`status-indicator ${connectionStatus === 'online' ? 'online' : ''}`}></span>
+              </h2>
               <div className="form-group">
                 <label htmlFor="comfyuiUrl">ComfyUI URL</label>
                 <input
@@ -432,7 +435,6 @@ const SettingsPage = () => {
                 />
                 <button className="save-button" onClick={handleConnectBackend}>Save</button>
               </div>
-              <p>Connection status: {connectionStatus}</p>
               <div className="form-group checkbox-group">
                 <input
                   type="checkbox"

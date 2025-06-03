@@ -30,12 +30,19 @@ const ExplorePage = () => {
   const categories = ['Random', 'Hot', 'Top Month', 'Likes'];
   const [activeCategory, setActiveCategory] = useState('Top Month');
 
+  const categoryParams = {
+    Random: { sort: 'Newest', period: 'Week' },
+    Hot: { sort: 'Most Reactions', period: 'Day' },
+    'Top Month': { sort: 'Most Reactions', period: 'Month' },
+    Likes: { sort: 'Most Reactions', period: 'AllTime' }
+  };
+
   // Persist NSFW preference
   useEffect(() => {
     localStorage.setItem('cj_civitai_show_nsfw', showNsfw.toString());
   }, [showNsfw]);
 
-  // Fetch images and models when the page changes
+  // Fetch images and models when the page or category changes
   useEffect(() => {
     const fetchExploreData = async () => {
       try {
@@ -45,7 +52,8 @@ const ExplorePage = () => {
           setLoadingMore(true);
         }
 
-        const imagesRes = await civitaiService.getImages({ limit: 20, page, nsfw: showNsfw });
+        const { sort, period } = categoryParams[activeCategory] || {};
+        const imagesRes = await civitaiService.getImages({ limit: 20, page, nsfw: showNsfw, sort, period });
         const modelsRes = await civitaiService.getModels({ limit: 20, page });
         const workflowsRes = await civitaiService.getModels({ limit: 20, page, types: 'Workflow' });
 
@@ -83,7 +91,7 @@ const ExplorePage = () => {
     };
 
     fetchExploreData();
-  }, [page, showNsfw]);
+  }, [page, showNsfw, activeCategory]);
 
   // Observer to trigger loading more images when scrolling near the bottom
   useEffect(() => {
