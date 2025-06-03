@@ -35,7 +35,9 @@ class DummyClient:
 def test_fetch_json_caching(monkeypatch):
     async def run():
         client = DummyClient()
-        monkeypatch.setattr(civitai, "httpx", types.SimpleNamespace(AsyncClient=lambda *a, **k: client))
+        monkeypatch.setattr(
+            civitai, "httpx", types.SimpleNamespace(AsyncClient=lambda *a, **k: client)
+        )
         civitai._CACHE.clear()
         civitai._last_request_time = 0.0
 
@@ -51,7 +53,9 @@ def test_fetch_json_caching(monkeypatch):
 def test_cache_key_includes_api_key(monkeypatch):
     async def run():
         client = DummyClient()
-        monkeypatch.setattr(civitai, "httpx", types.SimpleNamespace(AsyncClient=lambda *a, **k: client))
+        monkeypatch.setattr(
+            civitai, "httpx", types.SimpleNamespace(AsyncClient=lambda *a, **k: client)
+        )
         civitai._CACHE.clear()
         civitai._last_request_time = 0.0
 
