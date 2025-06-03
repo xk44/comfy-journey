@@ -51,6 +51,7 @@ try:
     _mongo_client = AsyncIOMotorClient(mongo_url)
     db = _mongo_client.get_database("comfyui_frontend")
 except Exception:  # pragma: no cover - fallback for tests
+
     class MemoryCollection:
         def __init__(self) -> None:
             self.store: Dict[str, Dict[str, Any]] = {}
@@ -68,7 +69,9 @@ except Exception:  # pragma: no cover - fallback for tests
 
             return Cursor(self.store)
 
-        async def update_one(self, query: Dict[str, Any], update: Dict[str, Any], upsert: bool = False) -> None:
+        async def update_one(
+            self, query: Dict[str, Any], update: Dict[str, Any], upsert: bool = False
+        ) -> None:
             _id = query.get("_id")
             doc = self.store.get(_id, {})
             doc.update(update.get("$set", {}))
@@ -189,7 +192,9 @@ async def get_civitai_key() -> Optional[str]:
 
 async def store_civitai_key(api_key: str) -> None:
     encrypted = fernet.encrypt(api_key.encode()).decode()
-    await db.civitai_key.update_one({"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True)
+    await db.civitai_key.update_one(
+        {"_id": "global"}, {"$set": {"key": encrypted}}, upsert=True
+    )
     os.environ["CIVITAI_API_KEY"] = api_key
 
 
@@ -208,6 +213,7 @@ def get_comfyui_url(request: Request) -> str:
         or COMFYUI_BASE_URL
     )
 
+
 app = FastAPI()
 init_db()
 api_router = APIRouter(prefix="/api")
@@ -217,6 +223,7 @@ api_router = APIRouter(prefix="/api")
 async def api_root():
     """Simple root endpoint used for health checks."""
     return api_response({"message": "ComfyUI Frontend API"})
+
 
 app.add_middleware(CSRFMiddleware, cookie_secure=not DEBUG_MODE)
 app.add_middleware(
@@ -355,7 +362,9 @@ async def get_parameters():
 async def update_parameter(param_id: str, mapping: ParameterMapping):
     doc = mapping.dict()
     doc["_id"] = param_id
-    await db.parameter_mappings.update_one({"_id": param_id}, {"$set": doc}, upsert=True)
+    await db.parameter_mappings.update_one(
+        {"_id": param_id}, {"$set": doc}, upsert=True
+    )
     return api_response(mapping.dict())
 
 
@@ -371,21 +380,35 @@ async def delete_parameter(param_id: str):
 
 
 @api_router.post("/relational/workflows", response_model=WorkflowMapping)
-async def create_rel_workflow(mapping: WorkflowMapping, dbs: Session = Depends(get_sql_db)):
-    wf = Workflow(id=mapping.id, name=mapping.name, description=mapping.description, data=json.dumps(mapping.data or {}))
+async def create_rel_workflow(
+    mapping: WorkflowMapping, dbs: Session = Depends(get_sql_db)
+):
+    wf = Workflow(
+        id=mapping.id,
+        name=mapping.name,
+        description=mapping.description,
+        data=json.dumps(mapping.data or {}),
+    )
     dbs.add(wf)
     dbs.commit()
     return api_response(mapping.dict())
 
 
 @api_router.post("/relational/workflows/upload", response_model=WorkflowMapping)
-async def upload_rel_workflow(payload: Dict[str, Any], dbs: Session = Depends(get_sql_db)):
+async def upload_rel_workflow(
+    payload: Dict[str, Any], dbs: Session = Depends(get_sql_db)
+):
     data = payload.get("data")
     if not isinstance(data, dict):
         raise HTTPException(status_code=400, detail="data field required")
     name = payload.get("name", f"workflow-{uuid.uuid4()}.json")
     mapping = WorkflowMapping(name=name, data=data)
-    wf = Workflow(id=mapping.id, name=mapping.name, description=mapping.description, data=json.dumps(mapping.data or {}))
+    wf = Workflow(
+        id=mapping.id,
+        name=mapping.name,
+        description=mapping.description,
+        data=json.dumps(mapping.data or {}),
+    )
     dbs.add(wf)
     dbs.commit()
     return api_response(mapping.dict())
@@ -407,7 +430,9 @@ async def get_rel_workflows(dbs: Session = Depends(get_sql_db)):
 
 
 @api_router.put("/relational/workflows/{wf_id}", response_model=WorkflowMapping)
-async def update_rel_workflow(wf_id: str, mapping: WorkflowMapping, dbs: Session = Depends(get_sql_db)):
+async def update_rel_workflow(
+    wf_id: str, mapping: WorkflowMapping, dbs: Session = Depends(get_sql_db)
+):
     wf = dbs.query(Workflow).filter(Workflow.id == wf_id).first()
     if not wf:
         raise HTTPException(status_code=404, detail="Workflow not found")
@@ -462,7 +487,9 @@ async def get_actions(dbs: Session = Depends(get_sql_db)):
 
 
 @api_router.put("/relational/actions/{action_id}", response_model=ActionMapping)
-async def update_action(action_id: str, mapping: ActionMapping, dbs: Session = Depends(get_sql_db)):
+async def update_action(
+    action_id: str, mapping: ActionMapping, dbs: Session = Depends(get_sql_db)
+):
     action = dbs.query(Action).filter(Action.id == action_id).first()
     if not action:
         raise HTTPException(status_code=404, detail="Action not found")
@@ -540,7 +567,11 @@ async def get_models():
 
 
 @api_router.post("/generate")
-async def start_generation(payload: GenerateRequest, background_tasks: BackgroundTasks = None, dbs: Session = Depends(get_sql_db)):
+async def start_generation(
+    payload: GenerateRequest,
+    background_tasks: BackgroundTasks = None,
+    dbs: Session = Depends(get_sql_db),
+):
     prompt = payload.prompt.strip()
     workflow_id = payload.workflow_id
     job_id = str(uuid.uuid4())
@@ -608,10 +639,10 @@ async def progress_stream(request: Request, job_id: str):
             if not job:
                 yield f"data: {json.dumps({'event': 'end', 'error': 'job_not_found'})}\n\n"
                 break
-            queue_size = sum(1 for j in jobs.values() if j['status'] != 'done')
-            payload = json.dumps({'job': job, 'queue_size': queue_size})
+            queue_size = sum(1 for j in jobs.values() if j["status"] != "done")
+            payload = json.dumps({"job": job, "queue_size": queue_size})
             yield f"data: {payload}\n\n"
-            if job['status'] == 'done':
+            if job["status"] == "done":
                 break
             await asyncio.sleep(0.1)
             if await request.is_disconnected():
@@ -633,7 +664,9 @@ async def proxy_comfyui_prompt(request: Request, payload: Dict[str, Any]):
         base = get_comfyui_url(request)
         resp = requests.post(f"{base}/prompt", json=payload, timeout=30)
         data = resp.json()
-        log_backend_call("POST", f"{base}/prompt", payload, data, resp.status_code, start)
+        log_backend_call(
+            "POST", f"{base}/prompt", payload, data, resp.status_code, start
+        )
         return api_response(data)
     except Exception as exc:
         log_backend_call(
@@ -699,7 +732,9 @@ async def comfyui_status(request: Request):
         base = get_comfyui_url(request)
         resp = requests.get(f"{base}/queue", timeout=5)
         resp.raise_for_status()
-        log_backend_call("GET", f"{base}/queue", None, {"status": "ok"}, resp.status_code, start)
+        log_backend_call(
+            "GET", f"{base}/queue", None, {"status": "ok"}, resp.status_code, start
+        )
         return api_response({"status": "online"})
     except Exception as exc:  # pragma: no cover - network failures
         log_backend_call(
@@ -760,35 +795,23 @@ async def has_civitai_key():
 
 
 @api_router.get("/civitai/images")
-async def civitai_images(
-    limit: int = 20,
-    page: int = 1,
-    query: Optional[str] = None,
-    nsfw: Optional[bool] = False,
-):
-    """Proxy to Civitai image search with optional NSFW flag."""
+async def civitai_images(request: Request, limit: int = 20, page: int = 1):
+    """Proxy to Civitai image search forwarding all query parameters."""
     api_key = await get_civitai_key()
-    params = {"limit": limit, "page": page, "nsfw": nsfw}
-    if query:
-        params["query"] = query
+    params = dict(request.query_params)
+    params.setdefault("limit", str(limit))
+    params.setdefault("page", str(page))
     data = await civitai_fetch("/images", params=params, api_key=api_key)
     return api_response(data)
 
 
 @api_router.get("/civitai/models")
-async def civitai_models(
-    limit: int = 20,
-    page: int = 1,
-    query: Optional[str] = None,
-    types: Optional[str] = None,
-):
-    """Proxy to Civitai model search with optional type filter."""
+async def civitai_models(request: Request, limit: int = 20, page: int = 1):
+    """Proxy to Civitai model search forwarding all query parameters."""
     api_key = await get_civitai_key()
-    params = {"limit": limit, "page": page}
-    if query:
-        params["query"] = query
-    if types:
-        params["types"] = types
+    params = dict(request.query_params)
+    params.setdefault("limit", str(limit))
+    params.setdefault("page", str(page))
     data = await civitai_fetch("/models", params=params, api_key=api_key)
     return api_response(data)
 
@@ -862,7 +885,9 @@ async def download_file(req: DownloadRequest):
 @api_router.post("/logs/frontend")
 async def receive_frontend_log(request: Request):
     data = await request.json()
-    log_frontend_event({"client": request.client.host if request.client else None, **data})
+    log_frontend_event(
+        {"client": request.client.host if request.client else None, **data}
+    )
     return api_response({"logged": True})
 
 
