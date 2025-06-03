@@ -1,7 +1,8 @@
 // Service for interacting with the Civitai API
 // Requests are proxied through the backend which handles authentication and
 // caching.  The base URL therefore points to our own API.
-const CIVITAI_API_URL = '/api/civitai';
+const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+const CIVITAI_API_URL = `${API_URL}/api/civitai`;
 
 // API key is stored securely on the backend. These helpers
 // allow the frontend to set the key without persisting it locally.
@@ -24,7 +25,7 @@ export const setApiKey = async (apiKey) => {
 
 // Helper for making API requests
 const makeRequest = async (endpoint, params = {}) => {
-  const url = new URL(`${CIVITAI_API_URL}${endpoint}`, window.location.origin);
+  const url = new URL(`${CIVITAI_API_URL}${endpoint}`);
   
   // Add params to URL
   Object.keys(params).forEach(key => {

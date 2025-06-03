@@ -100,9 +100,20 @@ const ExplorePage = () => {
   const [sort, setSort] = useState(() => localStorage.getItem('cj_sort') || 'Highest Rated');
   const [baseModel, setBaseModel] = useState(() => localStorage.getItem('cj_base_model') || '');
   const [modelType, setModelType] = useState(() => localStorage.getItem('cj_model_type') || '');
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
   const loadMoreRef = useRef(null);
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+
+  useEffect(() => {
+    const close = () => {
+      setShowSortMenu(false);
+      setShowFilterMenu(false);
+    };
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('cj_civitai_show_nsfw', showNsfw.toString());
@@ -203,12 +214,12 @@ const ExplorePage = () => {
   const filteredModels = filtered(models, ['name', 'description', 'creator']);
   const filteredWorkflows = filtered(workflows, ['name', 'description', 'creator']);
 
-  const filterMenu = (
-    <div className="filter-menu">
+  const sortMenu = (
+    <div className="dropdown-menu" onClick={e => e.stopPropagation()}>
       <div className="filter-group">
         <span>Time Period:</span>
         {PERIOD_OPTIONS.map(o => (
-          <button key={o.value} className={period === o.value ? 'active' : ''} onClick={() => { setPeriod(o.value); setPage(1); }}>
+          <button key={o.value} className={period === o.value ? 'active' : ''} onClick={() => { setPeriod(o.value); setPage(1); setShowSortMenu(false); }}>
             {o.label}
           </button>
         ))}
@@ -216,16 +227,21 @@ const ExplorePage = () => {
       <div className="filter-group">
         <span>Sort:</span>
         {SORT_OPTIONS.map(o => (
-          <button key={o} className={sort === o ? 'active' : ''} onClick={() => { setSort(o); setPage(1); }}>
+          <button key={o} className={sort === o ? 'active' : ''} onClick={() => { setSort(o); setPage(1); setShowSortMenu(false); }}>
             {o}
           </button>
         ))}
       </div>
+    </div>
+  );
+
+  const filterMenu = (
+    <div className="dropdown-menu" onClick={e => e.stopPropagation()}>
       {activeTab === 'Models' && (
         <div className="filter-group">
           <span>Model Type:</span>
           {MODEL_TYPES.map(t => (
-            <button key={t} className={modelType === t ? 'active' : ''} onClick={() => { setModelType(t); setPage(1); }}>
+            <button key={t} className={modelType === t ? 'active' : ''} onClick={() => { setModelType(modelType === t ? '' : t); setPage(1); }}>
               {t}
             </button>
           ))}
@@ -234,7 +250,7 @@ const ExplorePage = () => {
       <div className="filter-group">
         <span>Base Model:</span>
         {BASE_MODELS.map(b => (
-          <button key={b} className={baseModel === b ? 'active' : ''} onClick={() => { setBaseModel(b); setPage(1); }}>
+          <button key={b} className={baseModel === b ? 'active' : ''} onClick={() => { setBaseModel(baseModel === b ? '' : b); setPage(1); }}>
             {b}
           </button>
         ))}
@@ -242,16 +258,23 @@ const ExplorePage = () => {
     </div>
   );
 
+
   return (
     <div className="explore-page">
       {toast && <Toast message={toast.message} type={toast.type} onClose={clearToast} />}
       <div className="explore-header">
         <div className="explore-tabs">
           {['Images','Videos','Models','Workflows'].map(tab => (
-            <button key={tab} className={`explore-tab ${activeTab===tab?'active':''}`} onClick={() => { setActiveTab(tab); }}>
+            <button key={tab} className={`explore-tab ${activeTab===tab?'active':''}`} onClick={() => { setActiveTab(tab); setPage(1); }}>
               {tab}
             </button>
           ))}
+          <div className="menu-buttons">
+            <button className="menu-button" onClick={e => { e.stopPropagation(); setShowSortMenu(s => !s); setShowFilterMenu(false); }}>Sort</button>
+            {showSortMenu && sortMenu}
+            <button className="menu-button" onClick={e => { e.stopPropagation(); setShowFilterMenu(s => !s); setShowSortMenu(false); }}>Filter</button>
+            {showFilterMenu && filterMenu}
+          </div>
         </div>
         <div className="search-container">
           <input type="text" className="search-input" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchQuery} onChange={handleSearch} />
@@ -260,7 +283,6 @@ const ExplorePage = () => {
           </svg>
         </div>
       </div>
-      {filterMenu}
       {activeTab === 'Images' && (
         <>
           {loading ? (
