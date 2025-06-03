@@ -618,39 +618,85 @@ async def progress_stream(request: Request, job_id: str):
 
 @api_router.post("/comfyui/prompt")
 async def proxy_comfyui_prompt(payload: Dict[str, Any]):
+    """Proxy prompt submission to the ComfyUI backend."""
     start = datetime.utcnow().timestamp()
-    resp = requests.post(f"{COMFYUI_BASE_URL}/prompt", json=payload)
-    data = resp.json()
-    log_backend_call("POST", f"{COMFYUI_BASE_URL}/prompt", payload, data, resp.status_code, start)
-    return api_response(data)
+    try:
+        resp = requests.post(f"{COMFYUI_BASE_URL}/prompt", json=payload, timeout=30)
+        data = resp.json()
+        log_backend_call("POST", f"{COMFYUI_BASE_URL}/prompt", payload, data, resp.status_code, start)
+        return api_response(data)
+    except Exception as exc:
+        log_backend_call(
+            "POST",
+            f"{COMFYUI_BASE_URL}/prompt",
+            payload,
+            {"error": str(exc)},
+            500,
+            start,
+        )
+        return api_response(None, success=False, error=str(exc))
 
 
 @api_router.get("/comfyui/history")
 async def proxy_comfyui_history():
+    """Proxy generation history from ComfyUI."""
     start = datetime.utcnow().timestamp()
-    resp = requests.get(f"{COMFYUI_BASE_URL}/history")
-    data = resp.json()
-    log_backend_call("GET", f"{COMFYUI_BASE_URL}/history", None, data, resp.status_code, start)
-    return api_response(data)
+    try:
+        resp = requests.get(f"{COMFYUI_BASE_URL}/history", timeout=30)
+        data = resp.json()
+        log_backend_call("GET", f"{COMFYUI_BASE_URL}/history", None, data, resp.status_code, start)
+        return api_response(data)
+    except Exception as exc:
+        log_backend_call(
+            "GET",
+            f"{COMFYUI_BASE_URL}/history",
+            None,
+            {"error": str(exc)},
+            500,
+            start,
+        )
+        return api_response(None, success=False, error=str(exc))
 
 
 @api_router.get("/comfyui/queue")
 async def proxy_comfyui_queue():
+    """Proxy queue state from ComfyUI."""
     start = datetime.utcnow().timestamp()
-    resp = requests.get(f"{COMFYUI_BASE_URL}/queue")
-    data = resp.json()
-    log_backend_call("GET", f"{COMFYUI_BASE_URL}/queue", None, data, resp.status_code, start)
-    return api_response(data)
+    try:
+        resp = requests.get(f"{COMFYUI_BASE_URL}/queue", timeout=30)
+        data = resp.json()
+        log_backend_call("GET", f"{COMFYUI_BASE_URL}/queue", None, data, resp.status_code, start)
+        return api_response(data)
+    except Exception as exc:
+        log_backend_call(
+            "GET",
+            f"{COMFYUI_BASE_URL}/queue",
+            None,
+            {"error": str(exc)},
+            500,
+            start,
+        )
+        return api_response(None, success=False, error=str(exc))
 
 
 @api_router.get("/comfyui/status")
 async def comfyui_status():
     """Return basic status information about the configured ComfyUI server."""
+    start = datetime.utcnow().timestamp()
     try:
         resp = requests.get(f"{COMFYUI_BASE_URL}/queue", timeout=5)
         resp.raise_for_status()
+        log_backend_call("GET", f"{COMFYUI_BASE_URL}/queue", None, {"status": "ok"}, resp.status_code, start)
         return api_response({"status": "online"})
     except Exception as exc:  # pragma: no cover - network failures
+        log_backend_call(
+            "GET",
+            f"{COMFYUI_BASE_URL}/queue",
+            None,
+            {"error": str(exc)},
+            500,
+            start,
+        )
         return api_response({"status": "offline", "error": str(exc)})
 
 
