@@ -1,6 +1,6 @@
 import authService from './authService';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL;
+const API_URL = process.env.REACT_APP_BACKEND_URL || "";
 
 const downloadBackup = async () => {
   const resp = await authService.authAxios.get(`${API_URL}/api/maintenance/backup`, {
