@@ -1439,3 +1439,56 @@ button:disabled {
 .status-indicator.online {
   background: var(--success-color);
 }
+
+/* Settings Page Styles */
+.settings-page {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.settings-tab {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.settings-tab.active {
+  background: var(--accent-color);
+  color: #fff;
+}
+
+.settings-section {
+  background: var(--bg-card);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.settings-form .form-group input,
+.settings-form .form-group select {
+  max-width: 400px;
+}
+
+.settings-form button {
+  width: auto;
+  align-self: flex-start;
+}
+
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
