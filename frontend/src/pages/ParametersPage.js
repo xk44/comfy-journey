@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 import parameterService from '../services/parameterService';
@@ -11,7 +12,7 @@ const ParametersPage = () => {
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
   const [workflowNodes, setWorkflowNodes] = useState([]);
   const [workflowNodeParameters, setWorkflowNodeParameters] = useState({});
-  
+
   const [newParameter, setNewParameter] = useState({
     code: "",
     node_id: "",
@@ -20,8 +21,9 @@ const ParametersPage = () => {
     injection_mode: "",
     description: ""
   });
-  
+
   const [toast, setToast] = useState(null);
+  const location = useLocation();
   const { currentUser } = useAuth();
   
   useEffect(() => {
@@ -53,6 +55,25 @@ const ParametersPage = () => {
     
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (workflows.length === 0) return;
+    const query = new URLSearchParams(location.search);
+    const wfId = query.get('workflow');
+    const nodeId = query.get('node');
+    const param = query.get('param');
+    if (wfId) {
+      const wf = workflows.find((w) => w.id === wfId) || workflows[0];
+      setSelectedWorkflow(wf.id);
+      extractWorkflowNodes(wf);
+      if (nodeId) {
+        setNewParameter((prev) => ({ ...prev, node_id: nodeId }));
+      }
+      if (param) {
+        setNewParameter((prev) => ({ ...prev, param_name: param }));
+      }
+    }
+  }, [workflows, location.search]);
   
   const extractWorkflowNodes = (workflow) => {
     if (!workflow || !workflow.data || !workflow.data.nodes) {
