@@ -1304,3 +1304,25 @@ button:disabled {
 .gallery-overlay button:hover {
   background: var(--mj-accent-hover);
 }
+
+/* ComfyUI backend iframe styles */
+.comfyui-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 80px);
+}
+
+.comfyui-editor-container.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg-dark);
+}
+
+.comfyui-editor-frame,
+.comfyui-iframe {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+}

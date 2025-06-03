@@ -37,12 +37,13 @@ const makeRequest = async (endpoint, params = {}) => {
   
   try {
     const response = await fetch(url.toString(), options);
-    
+
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
     }
-    
-    return await response.json();
+
+    const data = await response.json();
+    return data.payload !== undefined ? data.payload : data;
   } catch (error) {
     console.error('Civitai API error:', error);
     throw error;
