@@ -10,7 +10,6 @@ import CreatePage from './pages/CreatePage';
 import ExplorePage from './pages/ExplorePage';
 import GalleryPage from './pages/GalleryPage';
 import EditorPage from './pages/EditorPage';
-import AdvancedEditorPage from './pages/AdvancedEditorPage';
 import WorkflowsPage from './pages/WorkflowsPage';
 import ParametersPage from './pages/ParametersPage';
 import BackendManagerPage from './pages/BackendManagerPage';
@@ -43,7 +42,6 @@ function App() {
                     <EditorPage image={selectedImage} /> : 
                     <Navigate to="/" replace />
                 } />
-                <Route path="/advanced-editor" element={<AdvancedEditorPage />} />
                 <Route path="/workflows" element={<WorkflowsPage />} />
                 <Route path="/parameters" element={<ParametersPage />} />
                 <Route path="/backend" element={<BackendManagerPage />} />

@@ -1117,20 +1117,6 @@ button:disabled {
   margin-right: 8px;
 }
 
-.advanced-editor-button {
-  background: var(--bg-input);
-  color: var(--text-primary);
-  border: none;
-  padding: 12px;
-  border-radius: 6px;
-  margin-top: auto;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.advanced-editor-button:hover {
-  background: #333;
-}
 
 .editor-main {
   flex: 1;
@@ -1142,7 +1128,7 @@ button:disabled {
 .editor-canvas-container {
   flex: 1;
   position: relative;
-  overflow: auto;
+  overflow: hidden;
   background: var(--bg-input);
   display: flex;
   justify-content: center;
