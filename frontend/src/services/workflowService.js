@@ -69,6 +69,17 @@ const getComfyUIStatus = async () => {
   }
 };
 
+// Restart ComfyUI server
+const restartComfyUI = async () => {
+  try {
+    const response = await authService.authAxios.post(`${API_URL}/api/comfyui/restart`);
+    return response.data;
+  } catch (error) {
+    console.error('Error restarting ComfyUI:', error);
+    return { status: 'error', error: error.message };
+  }
+};
+
 // Execute a workflow
 const executeWorkflow = async (workflowId, prompt, parameters = {}) => {
   try {
@@ -149,7 +160,8 @@ const workflowService = {
   executeWorkflow,
   streamProgress,
   getCustomActions,
-  saveCustomActions
+  saveCustomActions,
+  restartComfyUI
 };
 
 export default workflowService;
