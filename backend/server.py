@@ -893,6 +893,37 @@ async def download_file(req: DownloadRequest):
     return api_response({"saved_to": dest})
 
 
+@api_router.post("/transcribe")
+async def transcribe_audio(request: Request):
+    """Transcribe uploaded audio using OpenAI Whisper."""
+    import whisper
+
+    model_name = os.environ.get("WHISPER_MODEL", "base")
+    model_path = os.environ.get("WHISPER_MODEL_PATH")
+    model_ref = model_path if model_path else model_name
+    model = whisper.load_model(model_ref)
+
+    data = await request.body()
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".webm")
+    try:
+        tmp.write(data)
+        tmp.close()
+        result = model.transcribe(tmp.name)
+    finally:
+        os.unlink(tmp.name)
+
+    return api_response({"text": result.get("text", "").strip()})
+
+
+@api_router.post("/whisper/download")
+async def download_whisper_model(model: str, request: Request):
+    """Download a Whisper model to the configured path."""
+    import whisper
+    path = os.environ.get("WHISPER_MODEL_PATH", ".")
+    whisper._download(model, download_root=path)
+    return api_response({"model": model, "path": path})
+
+
 @api_router.post("/logs/frontend")
 async def receive_frontend_log(request: Request):
     data = await request.json()

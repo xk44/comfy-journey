@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Image, Line, Rect, Transformer } from 'react-konva';
 import useImage from 'use-image';
 import Konva from 'konva';
+import VoiceInput from './VoiceInput';
 
 const AdvancedEditor = ({
   image,
@@ -293,12 +294,21 @@ const clearMask = () => {
   }; 
    
   // Handle saving 
-  const handleSave = () => { 
+  const handleSave = () => {
     if (onSave) { 
       const stage = stageRef.current; 
       const dataUrl = stage.toDataURL(); 
       onSave(dataUrl); 
     } 
+  };
+
+  const handleVoiceResult = (text) => {
+    const prefs = JSON.parse(localStorage.getItem('comfyui_preferences') || '{}');
+    if (prefs.voicePlacement === 'prepend') {
+      onGenerateInpaint(`${text} ${prompt}`, null);
+    } else {
+      onGenerateInpaint(`${prompt} ${text}`, null);
+    }
   };
 
   // Toggle crop mode
@@ -730,6 +740,7 @@ const clearMask = () => {
           value={prompt}
           onChange={(e) => onGenerateInpaint(e.target.value, null)}
         />
+        <VoiceInput onResult={handleVoiceResult} />
       </div>
     </div>
   );

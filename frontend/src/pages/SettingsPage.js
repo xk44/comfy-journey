@@ -3,6 +3,7 @@ import Toast from '../components/Toast';
 import civitaiService from '../services/civitaiService';
 import backupService from '../services/backupService';
 import workflowService from '../services/workflowService';
+import voiceService from '../services/voiceService';
 
 const SettingsPage = () => {
   const [toast, setToast] = useState(null);
@@ -14,7 +15,14 @@ const SettingsPage = () => {
     enableNotifications: true,
     gridSize: 'medium',
     defaultAspectRatio: '1:1',
-    defaultQuality: 'standard'
+    defaultQuality: 'standard',
+    voicePlacement: 'append',
+    audioInputId: '',
+    audioOutputId: '',
+    playSound: false,
+    useCustomSound: false,
+    customSoundUrl: '',
+    soundVolume: 1
   });
 
   const [civitaiKey, setCivitaiKey] = useState('');
@@ -34,8 +42,13 @@ const SettingsPage = () => {
   const [paths, setPaths] = useState({
     workflowsDir: '',
     checkpointsDir: '',
-    lorasDir: ''
+    lorasDir: '',
+    whisperModel: 'base',
+    whisperModelPath: ''
   });
+
+  const [audioInputs, setAudioInputs] = useState([]);
+  const [audioOutputs, setAudioOutputs] = useState([]);
   
   const [activeTab, setActiveTab] = useState('preferences');
   
@@ -60,6 +73,13 @@ const SettingsPage = () => {
       } catch (err) {
         console.error('Error parsing saved paths:', err);
       }
+    }
+
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      navigator.mediaDevices.enumerateDevices().then(devs => {
+        setAudioInputs(devs.filter(d => d.kind === 'audioinput'));
+        setAudioOutputs(devs.filter(d => d.kind === 'audiooutput'));
+      }).catch(err => console.error('enumerateDevices failed', err));
     }
   }, []);
 
@@ -110,6 +130,18 @@ const SettingsPage = () => {
         document.body.classList.add('light-theme');
       }
     }
+  };
+
+  const handleSoundFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const updated = { ...preferences, customSoundUrl: ev.target.result };
+      setPreferences(updated);
+      localStorage.setItem('comfyui_preferences', JSON.stringify(updated));
+    };
+    reader.readAsDataURL(file);
   };
 
   const handlePathChange = (e) => {
@@ -310,8 +342,8 @@ const SettingsPage = () => {
                 
                 <div className="form-group">
                   <label htmlFor="defaultQuality">Default Quality</label>
-                  <select 
-                    id="defaultQuality" 
+                  <select
+                    id="defaultQuality"
                     name="defaultQuality"
                     value={preferences.defaultQuality}
                     onChange={handlePreferenceChange}
@@ -322,6 +354,98 @@ const SettingsPage = () => {
                     <option value="max">Maximum</option>
                   </select>
                 </div>
+
+                <div className="form-group">
+                  <label htmlFor="voicePlacement">Voice Text Placement</label>
+                  <select
+                    id="voicePlacement"
+                    name="voicePlacement"
+                    value={preferences.voicePlacement}
+                    onChange={handlePreferenceChange}
+                  >
+                    <option value="append">Append</option>
+                    <option value="prepend">Prepend</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="audioInputId">Audio Input</label>
+                  <select
+                    id="audioInputId"
+                    name="audioInputId"
+                    value={preferences.audioInputId}
+                    onChange={handlePreferenceChange}
+                  >
+                    <option value="">Default</option>
+                    {audioInputs.map(d => (
+                      <option key={d.deviceId} value={d.deviceId}>{d.label || d.deviceId}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="audioOutputId">Audio Output</label>
+                  <select
+                    id="audioOutputId"
+                    name="audioOutputId"
+                    value={preferences.audioOutputId}
+                    onChange={handlePreferenceChange}
+                  >
+                    <option value="">Default</option>
+                    {audioOutputs.map(d => (
+                      <option key={d.deviceId} value={d.deviceId}>{d.label || d.deviceId}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group checkbox-group">
+                  <input
+                    type="checkbox"
+                    id="playSound"
+                    name="playSound"
+                    checked={preferences.playSound}
+                    onChange={handlePreferenceChange}
+                  />
+                  <label htmlFor="playSound">Play sound when job completes</label>
+                </div>
+
+                {preferences.playSound && (
+                  <div className="form-group">
+                    <label>Notification Sound</label>
+                    <div>
+                      <label>
+                        <input
+                          type="radio"
+                          name="useCustomSound"
+                          value="false"
+                          checked={!preferences.useCustomSound}
+                          onChange={() => handlePreferenceChange({ target: { name: 'useCustomSound', value: false, type: 'radio' } })}
+                        /> Default
+                      </label>
+                      <label style={{ marginLeft: '1rem' }}>
+                        <input
+                          type="radio"
+                          name="useCustomSound"
+                          value="true"
+                          checked={preferences.useCustomSound}
+                          onChange={() => handlePreferenceChange({ target: { name: 'useCustomSound', value: true, type: 'radio' } })}
+                        /> Custom
+                      </label>
+                      {preferences.useCustomSound && (
+                        <input type="file" accept="audio/*" onChange={handleSoundFileChange} />
+                      )}
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        name="soundVolume"
+                        value={preferences.soundVolume}
+                        onChange={handlePreferenceChange}
+                      />
+                    </div>
+                  </div>
+                )}
                 
                 <button type="submit" className="save-button">Save Preferences</button>
               </form>
@@ -412,6 +536,38 @@ const SettingsPage = () => {
                     placeholder="/path/to/loras"
                   />
                 </div>
+
+                <div className="form-group">
+                  <label htmlFor="whisperModel">Whisper Model</label>
+                  <select
+                    id="whisperModel"
+                    name="whisperModel"
+                    value={paths.whisperModel}
+                    onChange={handlePathChange}
+                  >
+                    <option value="tiny">tiny</option>
+                    <option value="base">base</option>
+                    <option value="small">small</option>
+                    <option value="medium">medium</option>
+                    <option value="large">large</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="whisperModelPath">Whisper Model Path</label>
+                  <input
+                    type="text"
+                    id="whisperModelPath"
+                    name="whisperModelPath"
+                    value={paths.whisperModelPath}
+                    onChange={handlePathChange}
+                    placeholder="/path/to/whisper"
+                  />
+                </div>
+
+                <button type="button" className="save-button" onClick={() => voiceService.downloadModel(paths.whisperModel)}>
+                  Download Model
+                </button>
 
                 <button type="submit" className="save-button">Save Paths</button>
               </form>
