@@ -285,15 +285,25 @@ const EditorPage = () => {
         onDragOver={handlePageDragOver}
         onDrop={handlePageDrop}
       >
-        <div className="empty-state">
+        <div className="empty-state" onClick={handleUploadClick}>
           <h2>No Image Selected</h2>
           <p>Upload or drop an image to start editing.</p>
           <div className="dropzone-container">
             <ImageDropZone
               onImageDrop={handleImageDrop}
-              onUploadClick={handleUploadClick}
+              onUploadClick={(e) => {
+                e.stopPropagation();
+                handleUploadClick();
+              }}
             />
           </div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            accept="image/*"
+            onChange={handleFileUpload}
+          />
         </div>
       </div>
     );

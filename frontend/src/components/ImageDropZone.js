@@ -38,12 +38,15 @@ const ImageDropZone = ({ onImageDrop, onUploadClick }) => {
   };
   
   return (
-    <div 
+    <div
       className={`image-dropzone ${isDragging ? 'dragging' : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      onClick={onUploadClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onUploadClick();
+      }}
     >
       <div className="dropzone-content">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="40" height="40">
