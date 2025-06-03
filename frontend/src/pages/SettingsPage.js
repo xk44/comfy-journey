@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 import civitaiService from '../services/civitaiService';
+import backupService from '../services/backupService';
 
 const SettingsPage = () => {
   const { currentUser, updateProfile, logout } = useAuth();
@@ -24,6 +25,7 @@ const SettingsPage = () => {
   });
 
   const [civitaiKey, setCivitaiKey] = useState('');
+  const [restoreFile, setRestoreFile] = useState(null);
   
   const [activeTab, setActiveTab] = useState('profile');
   
@@ -124,6 +126,34 @@ const SettingsPage = () => {
       showToast('Failed to save key. Please try again.', 'error');
     }
   };
+
+  const handleDownloadBackup = async () => {
+    try {
+      const blob = await backupService.downloadBackup();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cj-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.tar.gz`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      showToast('Backup downloaded', 'success');
+    } catch (err) {
+      console.error('Backup failed', err);
+      showToast('Failed to create backup', 'error');
+    }
+  };
+
+  const handleRestoreBackup = async () => {
+    if (!restoreFile) return;
+    try {
+      await backupService.restoreBackup(restoreFile);
+      setRestoreFile(null);
+      showToast('Backup restored', 'success');
+    } catch (err) {
+      console.error('Restore failed', err);
+      showToast('Failed to restore backup', 'error');
+    }
+  };
   
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to log out?')) {
@@ -166,13 +196,19 @@ const SettingsPage = () => {
           >
             Preferences
           </button>
-          <button 
+          <button
             className={`settings-tab ${activeTab === 'api' ? 'active' : ''}`}
             onClick={() => setActiveTab('api')}
           >
             API Keys
           </button>
-          <button 
+          <button
+            className={`settings-tab ${activeTab === 'backup' ? 'active' : ''}`}
+            onClick={() => setActiveTab('backup')}
+          >
+            Backup
+          </button>
+          <button
             className={`settings-tab ${activeTab === 'account' ? 'active' : ''}`}
             onClick={() => setActiveTab('account')}
           >
@@ -326,7 +362,7 @@ const SettingsPage = () => {
               </form>
             </div>
           )}
-          
+
           {activeTab === 'api' && (
             <div className="settings-section">
               <h2>API Keys</h2>
@@ -363,6 +399,17 @@ const SettingsPage = () => {
                   />
                   <button className="save-button" onClick={handleSaveCivitaiKey}>Save</button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'backup' && (
+            <div className="settings-section">
+              <h2>Backup &amp; Restore</h2>
+              <div className="backup-actions">
+                <button className="save-button" onClick={handleDownloadBackup}>Download Backup</button>
+                <input type="file" onChange={e => setRestoreFile(e.target.files[0])} />
+                <button className="save-button" onClick={handleRestoreBackup}>Restore</button>
               </div>
             </div>
           )}

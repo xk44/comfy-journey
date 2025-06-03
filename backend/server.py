@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import types
+import tempfile
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, AsyncIterator
@@ -23,7 +24,8 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi import Request
 from sqlalchemy.orm import Session
 from starlette.middleware.cors import CORSMiddleware
 
@@ -663,6 +665,7 @@ async def civitai_models(limit: int = 20, page: int = 1, query: Optional[str] = 
 
 
 from scripts.cleanup import cleanup as cleanup_task
+from scripts.backup import async_backup_file, async_restore_file
 
 CLEAN_PATHS = os.environ.get("CJ_CLEAN_PATHS", "").split(":")
 CLEAN_DAYS = int(os.environ.get("CJ_CLEAN_DAYS", "7"))
@@ -684,6 +687,25 @@ async def _cleanup_worker() -> None:
 async def run_cleanup(background_tasks: BackgroundTasks, days: int = CLEAN_DAYS):
     background_tasks.add_task(cleanup_task, CLEAN_PATHS, days)
     return api_response({"message": "Cleanup started"})
+
+
+@api_router.get("/maintenance/backup")
+async def download_backup():
+    path = await async_backup_file(db=db)
+    return FileResponse(path, filename=os.path.basename(path))
+
+
+@api_router.post("/maintenance/restore")
+async def upload_backup(request: Request):
+    data = await request.body()
+    tmp = tempfile.NamedTemporaryFile(delete=False)
+    try:
+        tmp.write(data)
+        tmp.close()
+        await async_restore_file(tmp.name, db=db)
+    finally:
+        os.unlink(tmp.name)
+    return api_response({"message": "Restore completed"})
 
 
 # ---------------------------------------------------------------------------
