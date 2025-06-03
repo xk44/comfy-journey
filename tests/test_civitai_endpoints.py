@@ -104,3 +104,56 @@ def test_videos_forwarded(monkeypatch):
     assert captured["params"]["page"] == "1"
     assert captured["params"]["sort"] == "Newest"
     assert captured["params"]["period"] == "Month"
+
+
+def test_models_forwarded(monkeypatch):
+    captured = {}
+
+    async def dummy_fetch(endpoint, params=None, api_key=None):
+        captured["endpoint"] = endpoint
+        captured["params"] = params
+        return {}
+
+    monkeypatch.setattr(server, "civitai_fetch", dummy_fetch)
+
+    resp = client.get(
+        "/api/civitai/models",
+        params={"limit": 10, "page": 3, "sort": "Highest Rated"},
+    )
+    assert resp.status_code == 200
+    assert captured["endpoint"] == "/models"
+    assert captured["params"]["limit"] == "10"
+    assert captured["params"]["page"] == "3"
+    assert captured["params"]["sort"] == "Highest Rated"
+
+
+def test_model_detail_forwarded(monkeypatch):
+    captured = {}
+
+    async def dummy_fetch(endpoint, params=None, api_key=None):
+        captured["endpoint"] = endpoint
+        captured["params"] = params
+        return {}
+
+    monkeypatch.setattr(server, "civitai_fetch", dummy_fetch)
+
+    resp = client.get("/api/civitai/models/123", params={"versionId": "456"})
+    assert resp.status_code == 200
+    assert captured["endpoint"] == "/models/123"
+    assert captured["params"]["versionId"] == "456"
+
+
+def test_tags_forwarded(monkeypatch):
+    captured = {}
+
+    async def dummy_fetch(endpoint, params=None, api_key=None):
+        captured["endpoint"] = endpoint
+        captured["params"] = params
+        return {}
+
+    monkeypatch.setattr(server, "civitai_fetch", dummy_fetch)
+
+    resp = client.get("/api/civitai/tags", params={"query": "foo"})
+    assert resp.status_code == 200
+    assert captured["endpoint"] == "/tags"
+    assert captured["params"]["query"] == "foo"

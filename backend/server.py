@@ -827,6 +827,24 @@ async def civitai_models(request: Request, limit: int = 20, page: int = 1):
     return api_response(data)
 
 
+@api_router.get("/civitai/models/{model_id}")
+async def civitai_model_detail(model_id: str, request: Request):
+    """Proxy to fetch a specific model by ID from Civitai."""
+    api_key = await get_civitai_key()
+    params = dict(request.query_params)
+    data = await civitai_fetch(f"/models/{model_id}", params=params, api_key=api_key)
+    return api_response(data)
+
+
+@api_router.get("/civitai/tags")
+async def civitai_tags(request: Request):
+    """Proxy to Civitai tags endpoint forwarding all query parameters."""
+    api_key = await get_civitai_key()
+    params = dict(request.query_params)
+    data = await civitai_fetch("/tags", params=params, api_key=api_key)
+    return api_response(data)
+
+
 # ---------------------------------------------------------------------------
 # Maintenance endpoint
 # ---------------------------------------------------------------------------
