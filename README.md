@@ -54,6 +54,8 @@ export COMFYUI_BASE_URL=http://localhost:8188
 export DATABASE_URL=sqlite:///./comfy.db
 export SECRET_KEY=change-me
 export CIVITAI_API_KEY=<your-key>
+# URL where the FastAPI backend is reachable
+export REACT_APP_BACKEND_URL=http://localhost:8001
 ```
 
 4. Start the application:

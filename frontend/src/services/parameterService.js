@@ -1,6 +1,6 @@
 import authService from './authService';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || "";
+const API_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 
 // Get all parameter mappings
 const getParameterMappings = async () => {
