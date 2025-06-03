@@ -805,6 +805,17 @@ async def civitai_images(request: Request, limit: int = 20, page: int = 1):
     return api_response(data)
 
 
+@api_router.get("/civitai/videos")
+async def civitai_videos(request: Request, limit: int = 20, page: int = 1):
+    """Proxy to Civitai video search forwarding all query parameters."""
+    api_key = await get_civitai_key()
+    params = dict(request.query_params)
+    params.setdefault("limit", str(limit))
+    params.setdefault("page", str(page))
+    data = await civitai_fetch("/videos", params=params, api_key=api_key)
+    return api_response(data)
+
+
 @api_router.get("/civitai/models")
 async def civitai_models(request: Request, limit: int = 20, page: int = 1):
     """Proxy to Civitai model search forwarding all query parameters."""
