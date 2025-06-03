@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import "./midjourney-theme.css"; // Import the Midjourney-style theme
 import App from "./App";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Apply saved theme preference before rendering
 try {
@@ -17,6 +18,8 @@ try {
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>,
 );

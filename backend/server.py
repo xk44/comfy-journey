@@ -25,14 +25,19 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.responses import StreamingResponse, FileResponse
-from fastapi import Request
 from sqlalchemy.orm import Session
 from starlette.middleware.cors import CORSMiddleware
 
 from .csrf import CSRFMiddleware
 from .external_integrations.civitai import civitai_get, fetch_json as civitai_fetch
 from .models import Action, ImageOutput, Prompt, SessionLocal, Workflow, init_db
-from .utils import DEBUG_MODE, api_response, log_backend_call
+from .utils import (
+    DEBUG_MODE,
+    api_response,
+    log_backend_call,
+    log_frontend_event,
+    LOG_BACKEND_PATH,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -731,6 +736,13 @@ async def download_file(req: DownloadRequest):
     return api_response({"saved_to": dest})
 
 
+@api_router.post("/logs/frontend")
+async def receive_frontend_log(request: Request):
+    data = await request.json()
+    log_frontend_event({"client": request.client.host if request.client else None, **data})
+    return api_response({"logged": True})
+
+
 # ---------------------------------------------------------------------------
 # Mount router and startup/shutdown events
 # ---------------------------------------------------------------------------
@@ -738,7 +750,10 @@ async def download_file(req: DownloadRequest):
 
 app.include_router(api_router)
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[logging.FileHandler(LOG_BACKEND_PATH), logging.StreamHandler()],
+)
 
 
 @app.on_event("startup")

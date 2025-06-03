@@ -7,8 +7,13 @@ import logging
 
 DEBUG_MODE = os.environ.get("DEBUG", "false").lower() == "true"
 
-# Path to log file for ComfyUI backend calls
-LOG_PATH = os.environ.get("COMFY_LOG_PATH", "comfy_backend.log")
+# Directory to store log files
+LOGS_DIR = os.environ.get("LOGS_DIR", "logs")
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+# Paths to individual log files
+LOG_BACKEND_PATH = os.path.join(LOGS_DIR, "log_backend.txt")
+LOG_FRONTEND_PATH = os.path.join(LOGS_DIR, "log_frontend.txt")
 
 
 def api_response(payload: Any = None, *, success: bool = True, debug_info: Optional[Dict[str, Any]] = None, error: Optional[str] = None) -> JSONResponse:
@@ -24,6 +29,15 @@ def api_response(payload: Any = None, *, success: bool = True, debug_info: Optio
     return JSONResponse(content=body)
 
 
+def _write_log(entry: Dict[str, Any], path: str) -> None:
+    """Write a single log entry as JSON to the given file."""
+    try:
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry) + "\n")
+    except Exception:
+        logging.exception("Failed to write log to %s", path)
+
+
 def log_backend_call(method: str, url: str, request_data: Any, response_data: Any, status_code: int, start_time: float) -> None:
     """Log a backend call with request/response data for debugging."""
     entry = {
@@ -36,8 +50,14 @@ def log_backend_call(method: str, url: str, request_data: Any, response_data: An
         "runtime_ms": round((datetime.utcnow().timestamp() - start_time) * 1000, 2),
     }
     logging.info(json.dumps(entry))
-    try:
-        with open(LOG_PATH, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps(entry) + "\n")
-    except Exception:
-        logging.exception("Failed to write backend log")
+    _write_log(entry, LOG_BACKEND_PATH)
+
+
+def log_frontend_event(event: Any) -> None:
+    """Log a frontend event sent from the browser."""
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "event": event,
+    }
+    logging.info("Frontend: %s", json.dumps(event))
+    _write_log(entry, LOG_FRONTEND_PATH)
