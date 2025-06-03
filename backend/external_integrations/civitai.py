@@ -11,6 +11,17 @@ import hashlib
 
 import httpx
 
+# Reusable HTTP client to avoid connection overhead
+_HTTP_CLIENT: Optional[httpx.AsyncClient] = None
+
+
+async def _get_client() -> httpx.AsyncClient:
+    """Return a cached :class:`httpx.AsyncClient` instance."""
+    global _HTTP_CLIENT
+    if _HTTP_CLIENT is None or getattr(_HTTP_CLIENT, "is_closed", False):
+        _HTTP_CLIENT = httpx.AsyncClient()
+    return _HTTP_CLIENT
+
 # Configuration via environment variables
 BASE_URL = os.environ.get("CIVITAI_BASE_URL", "https://civitai.com/api/v1")
 CACHE_TTL = float(os.environ.get("CIVITAI_CACHE_TTL", "60"))
@@ -40,7 +51,10 @@ async def fetch_json(
 ) -> Any:
     """Fetch JSON from the Civitai API respecting rate limits and caching."""
 
-    global _last_request_time
+    global _last_request_time, _HTTP_CLIENT
+
+    if not _CACHE:
+        _HTTP_CLIENT = None
 
     key = _cache_key(path, params, api_key)
     now = time.monotonic()
@@ -60,10 +74,10 @@ async def fetch_json(
         headers["Authorization"] = f"Bearer {api_key}"
 
     url = f"{BASE_URL}{path}"
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(url, params=params, headers=headers, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
+    client = await _get_client()
+    resp = await client.get(url, params=params, headers=headers, timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
 
     _last_request_time = time.monotonic()
     _CACHE[key] = (now, data)
