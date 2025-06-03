@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import Toast from '../components/Toast';
 import ImageDropZone from '../components/ImageDropZone';
 
@@ -13,14 +13,16 @@ const EditorPage = () => {
   const [maskVisible, setMaskVisible] = useState(true);
   const [imageVisible, setImageVisible] = useState(true);
   const [undoStack, setUndoStack] = useState([]);
+  const [zoom, setZoom] = useState(1);
+  const [origin, setOrigin] = useState('50% 50%');
 
   const canvasRef = useRef(null);
   const maskRef = useRef(null);
+  const containerRef = useRef(null);
   const isDrawing = useRef(false);
   const fileInputRef = useRef(null);
-  
+
   const location = useLocation();
-  const navigate = useNavigate();
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -72,6 +74,21 @@ const EditorPage = () => {
     }
   };
 
+  const updateScale = () => {
+    if (!canvasRef.current || !maskRef.current || !containerRef.current) return;
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+    const imgWidth = canvasRef.current.width;
+    const imgHeight = canvasRef.current.height;
+    const scaleFactor = Math.min(containerWidth / imgWidth, containerHeight / imgHeight, 1);
+    const displayWidth = imgWidth * scaleFactor;
+    const displayHeight = imgHeight * scaleFactor;
+    canvasRef.current.style.width = `${displayWidth}px`;
+    canvasRef.current.style.height = `${displayHeight}px`;
+    maskRef.current.style.width = `${displayWidth}px`;
+    maskRef.current.style.height = `${displayHeight}px`;
+  };
+
   useEffect(() => {
     if (location.state?.image) {
       setImage(location.state.image);
@@ -110,6 +127,9 @@ const EditorPage = () => {
     };
 
     initializeCanvas();
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
   }, [image]);
 
   useEffect(() => {
@@ -122,6 +142,26 @@ const EditorPage = () => {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [undoStack]);
+
+  const handleWheel = (e) => {
+    if (e.shiftKey) {
+      e.preventDefault();
+      const rect = canvasRef.current.getBoundingClientRect();
+      const originX = ((e.clientX - rect.left) / rect.width) * 100;
+      const originY = ((e.clientY - rect.top) / rect.height) * 100;
+      setOrigin(`${originX}% ${originY}%`);
+      setZoom((prev) => {
+        const newZoom = e.deltaY < 0 ? prev * 1.1 : prev / 1.1;
+        return Math.min(Math.max(newZoom, 1), 5);
+      });
+    } else if (maskRef.current) {
+      e.preventDefault();
+      setBrushSize((prev) => {
+        const change = e.deltaY < 0 ? 1 : -1;
+        return Math.min(Math.max(prev + change, 1), 100);
+      });
+    }
+  };
 
   const startDrawing = (e) => {
     if (!maskRef.current) return;
@@ -236,16 +276,6 @@ const EditorPage = () => {
 
   const clearToast = () => {
     setToast(null);
-  };
-
-  const handleNavigateToAdvancedEditor = () => {
-    navigate('/advanced-editor', { 
-      state: { 
-        image, 
-        prompt,
-        mask: maskRef.current?.toDataURL('image/png')
-      } 
-    });
   };
 
   if (!image) {
@@ -392,24 +422,27 @@ const EditorPage = () => {
           </div>
         </div>
         
-        <button className="advanced-editor-button" onClick={handleNavigateToAdvancedEditor}>
-          Open Advanced Editor
-        </button>
       </div>
       
       <div className="editor-main">
-        <div className="editor-canvas-container">
-          <canvas 
+        <div
+          className="editor-canvas-container"
+          ref={containerRef}
+          onWheel={handleWheel}
+        >
+          <canvas
             ref={canvasRef}
             className={`editor-canvas ${imageVisible ? '' : 'hidden'}`}
+            style={{ transform: `scale(${zoom})`, transformOrigin: origin }}
           />
-          <canvas 
+          <canvas
             ref={maskRef}
             className={`editor-mask ${maskVisible ? '' : 'hidden'}`}
             onMouseDown={startDrawing}
             onMouseMove={draw}
             onMouseUp={stopDrawing}
             onMouseOut={stopDrawing}
+            style={{ transform: `scale(${zoom})`, transformOrigin: origin }}
           />
         </div>
         

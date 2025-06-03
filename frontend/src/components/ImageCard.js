@@ -17,8 +17,8 @@ const ImageCard = ({ image, onShare, onCopy, onSelect }) => {
       sessionStorage.setItem('imagePrompt', image.prompt);
     }
     
-    // Navigate to the advanced editor page
-    navigate('/advanced-editor');
+    // Navigate to the editor page
+    navigate('/editor');
   };
   
   return (
