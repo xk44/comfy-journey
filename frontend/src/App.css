@@ -1319,6 +1319,11 @@ button:disabled {
   border-radius: 8px;
 }
 
+.editor-page .empty-state {
+  height: auto;
+  cursor: pointer;
+}
+
 .empty-state h2 {
   font-size: 1.5rem;
   margin-bottom: 10px;
