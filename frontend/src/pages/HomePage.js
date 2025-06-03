@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import VoiceInput from '../components/VoiceInput';
 import { useLocation } from 'react-router-dom';
 import ImageDropZone from '../components/ImageDropZone';
 import ImageCard from '../components/ImageCard';
@@ -338,6 +339,15 @@ const HomePage = () => {
     }
   };
 
+  const handleVoiceResult = (text) => {
+    const prefs = JSON.parse(localStorage.getItem('comfyui_preferences') || '{}');
+    if (prefs.voicePlacement === 'prepend') {
+      setPrompt((prev) => `${text} ${prev}`.trim());
+    } else {
+      setPrompt((prev) => `${prev} ${text}`.trim());
+    }
+  };
+
   return (
     <div className="home-page">
       {toast && (
@@ -366,7 +376,8 @@ const HomePage = () => {
             />
             
             <div className="prompt-options">
-              <select 
+              <VoiceInput onResult={handleVoiceResult} />
+              <select
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
                 disabled={generating}

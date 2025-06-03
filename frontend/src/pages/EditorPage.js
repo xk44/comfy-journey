@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import Toast from '../components/Toast';
 import ImageDropZone from '../components/ImageDropZone';
+import VoiceInput from '../components/VoiceInput';
 
 const EditorPage = () => {
   const [image, setImage] = useState(null);
@@ -270,6 +271,15 @@ const EditorPage = () => {
     showToast('Inpainting request sent!', 'success');
   };
 
+  const handleVoiceResult = (text) => {
+    const prefs = JSON.parse(localStorage.getItem('comfyui_preferences') || '{}');
+    if (prefs.voicePlacement === 'prepend') {
+      setPrompt(prev => `${text} ${prev}`.trim());
+    } else {
+      setPrompt(prev => `${prev} ${text}`.trim());
+    }
+  };
+
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
   };
@@ -464,6 +474,7 @@ const EditorPage = () => {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
           />
+          <VoiceInput onResult={handleVoiceResult} />
           
           <div className="control-buttons">
             <button 

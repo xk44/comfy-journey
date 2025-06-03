@@ -6,6 +6,7 @@ import parameterService from '../services/parameterService';
 import workflowService from '../services/workflowService';
 import progressService from '../services/progressService';
 import modelService from '../services/modelService';
+import VoiceInput from '../components/VoiceInput';
 
 const CreatePage = () => {
   const [prompt, setPrompt] = useState('');
@@ -207,6 +208,7 @@ const CreatePage = () => {
             setLoading(false);
             source.close();
             showToast('Generation completed', 'success');
+            playSoundNotification();
           }
         },
         (err) => {
@@ -275,6 +277,42 @@ const CreatePage = () => {
     setSearchQuery(e.target.value);
   };
 
+  const handleVoiceResult = (text) => {
+    const prefs = JSON.parse(localStorage.getItem('comfyui_preferences') || '{}');
+    if (prefs.voicePlacement === 'prepend') {
+      setPrompt(prev => `${text} ${prev}`.trim());
+    } else {
+      setPrompt(prev => `${prev} ${text}`.trim());
+    }
+  };
+
+  const playSoundNotification = () => {
+    try {
+      const prefs = JSON.parse(localStorage.getItem('comfyui_preferences') || '{}');
+      if (!prefs.playSound) return;
+      let play; 
+      if (prefs.useCustomSound && prefs.customSoundUrl) {
+        play = new Audio(prefs.customSoundUrl);
+      } else {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine'; osc.frequency.value = 440;
+        gain.gain.value = prefs.soundVolume || 0.5;
+        osc.start(); osc.stop(ctx.currentTime + 0.2);
+        return; // nothing else to do
+      }
+      play.volume = prefs.soundVolume || 1;
+      if (play.setSinkId && prefs.audioOutputId) {
+        play.setSinkId(prefs.audioOutputId).catch(() => {});
+      }
+      play.play();
+    } catch (err) {
+      console.warn('Sound failed', err);
+    }
+  };
+
   return (
     <div className="create-page" onDragOver={handleDragOver} onDrop={handleDrop}>
       {toast && (
@@ -296,20 +334,22 @@ const CreatePage = () => {
             onChange={handlePromptChange}
             onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
           />
-          {showSuggestions && (
-            <ul className="prompt-suggestions">
-              {suggestions.map((s) => (
-                <li key={s.code} onMouseDown={() => handleSuggestionClick(s.code)}>
-                  <span className="suggestion-code">{s.code}</span>
-                  {s.description && (
-                    <span className="suggestion-desc">{s.description}</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          
-          <div className="prompt-tools">
+        {showSuggestions && (
+          <ul className="prompt-suggestions">
+            {suggestions.map((s) => (
+              <li key={s.code} onMouseDown={() => handleSuggestionClick(s.code)}>
+                <span className="suggestion-code">{s.code}</span>
+                {s.description && (
+                  <span className="suggestion-desc">{s.description}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <VoiceInput onResult={handleVoiceResult} />
+
+        <div className="prompt-tools">
             <button className="tool-button" title="Random Prompt">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
