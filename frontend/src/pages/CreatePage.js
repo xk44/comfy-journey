@@ -68,9 +68,6 @@ const CreatePage = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [prevPrompt, nextPrompt]);
 
-  // Categories for the tabs
-  const categories = ['Random', 'Hot', 'Top Month', 'Likes'];
-  const [activeCategory, setActiveCategory] = useState('Hot');
 
   // Fetch parameter mappings on component mount
   useEffect(() => {
@@ -336,19 +333,6 @@ const CreatePage = () => {
           </div>
         </div>
       </div>
-
-      <div className="category-tabs">
-        {categories.map(category => (
-          <button
-            key={category}
-            className={`category-tab ${activeCategory === category ? 'active' : ''}`}
-            onClick={() => setActiveCategory(category)}
-          >
-            {category}
-          </button>
-        ))}
-      </div>
-
       <div className="search-container" style={{ marginTop: '10px' }}>
         <input
           type="text"
