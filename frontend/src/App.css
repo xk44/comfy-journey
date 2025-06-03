@@ -392,6 +392,34 @@ button:disabled {
   gap: 20px;
 }
 
+.job-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.job-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.job-images {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.job-info {
+  max-width: 300px;
+}
+
+.job-prompt {
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
 .image-card {
   position: relative;
   border-radius: 8px;

@@ -11,7 +11,7 @@ const CreatePage = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef(null);
-  const [outputs, setOutputs] = useState([]);
+  const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [parameterMappings, setParameterMappings] = useState([]);
@@ -27,12 +27,12 @@ const CreatePage = () => {
 
   const { currentUser } = useAuth();
 
-  const filteredOutputs = outputs.filter((out) => {
+  const filteredJobs = jobs.filter((job) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
-    const promptText = out.prompt ? out.prompt.toLowerCase() : '';
-    const metaText = out.metadata
-      ? Object.entries(out.metadata)
+    const promptText = job.prompt ? job.prompt.toLowerCase() : '';
+    const metaText = job.metadata
+      ? Object.entries(job.metadata)
           .map(([k, v]) => `--${k} ${v}`)
           .join(' ')
           .toLowerCase()
@@ -82,65 +82,32 @@ const CreatePage = () => {
 
     fetchParameterMappings();
 
-    // Load mock outputs for demo
-    const mockImages = [
+    const mockJobs = [
       {
-        id: '1',
-        url: 'https://source.unsplash.com/random/500x500/?space,galaxy',
+        id: 'job1',
         prompt: 'Tender holographic colors, Venus Botticelli with galaxy inside out, enigmatic, energetic, long exposure, optical illusion, glow aesthetics, surrounded by stars and peonies, hyper detailed, 8k, vhs sfx, 80s film grain',
         metadata: { chaos: 33, v: 7, stylize: 1000 },
-        type: 'image'
+        images: [
+          { id: '1', url: 'https://source.unsplash.com/random/500x500/?space,galaxy', type: 'image' },
+          { id: '2', url: 'https://source.unsplash.com/random/500x500/?nebula', type: 'image' },
+          { id: '3', url: 'https://source.unsplash.com/random/500x500/?galaxy,face', type: 'image' },
+          { id: '4', url: 'https://source.unsplash.com/random/500x500/?cosmos', type: 'image' }
+        ]
       },
       {
-        id: '2',
-        url: 'https://source.unsplash.com/random/500x500/?nebula',
-        prompt: 'Tender holographic colors, Venus Botticelli with galaxy inside out, enigmatic, energetic, long exposure, optical illusion, glow aesthetics, surrounded by stars and peonies, hyper detailed, 8k, vhs sfx, 80s film grain',
-        metadata: { chaos: 33, v: 7, stylize: 200 },
-        type: 'image'
-      },
-      {
-        id: '3',
-        url: 'https://source.unsplash.com/random/500x500/?galaxy,face',
-        prompt: 'Tender holographic colors, Venus Botticelli with galaxy inside out, enigmatic, energetic, long exposure, optical illusion, glow aesthetics, surrounded by stars and peonies, hyper detailed, 8k, vhs sfx, 80s film grain',
-        metadata: { chaos: 33, v: 7, stylize: 1000 }
-      },
-      {
-        id: '4',
-        url: 'https://source.unsplash.com/random/500x500/?cosmos',
-        prompt: 'Tender holographic colors, Venus Botticelli with galaxy inside out, enigmatic, energetic, long exposure, optical illusion, glow aesthetics, surrounded by stars and peonies, hyper detailed, 8k, vhs sfx, 80s film grain',
-        metadata: { chaos: 33, v: 7, stylize: 1000 }
-      },
-      {
-        id: '5',
-        url: 'https://source.unsplash.com/random/500x500/?nebula,space',
+        id: 'job2',
         prompt: 'Tender holographic colors, Venus Botticelli with galaxy inside out, enigmatic, energetic, long exposure, optical illusion, glow aesthetics, surrounded by stars and peonies, hyper detailed, 8k, vhs sfx, 80s film grain',
         metadata: { chaos: 33, v: 7, stylize: 1000 },
-        type: 'image'
-      },
-      {
-        id: '6',
-        url: 'https://source.unsplash.com/random/500x500/?cosmos,stars',
-        prompt: 'Tender holographic colors, Venus Botticelli with galaxy inside out, enigmatic, energetic, long exposure, optical illusion, glow aesthetics, surrounded by stars and peonies, hyper detailed, 8k, vhs sfx, 80s film grain',
-        metadata: { chaos: 33, v: 7, stylize: 1000 },
-        type: 'image'
-      },
-      {
-        id: '7',
-        url: 'https://source.unsplash.com/random/500x500/?face,galaxy',
-        prompt: 'Tender holographic colors, Venus Botticelli with galaxy inside out, enigmatic, energetic, long exposure, optical illusion, glow aesthetics, surrounded by stars and peonies, hyper detailed, 8k, vhs sfx, 80s film grain',
-        metadata: { chaos: 33, v: 7, stylize: 1000 },
-        type: 'image'
-      },
-      {
-        id: '8',
-        url: 'https://source.unsplash.com/random/500x500/?stars,cosmos',
-        prompt: 'Tender holographic colors, Venus Botticelli with galaxy inside out, enigmatic, energetic, long exposure, optical illusion, glow aesthetics, surrounded by stars and peonies, hyper detailed, 8k, vhs sfx, 80s film grain',
-        metadata: { chaos: 33, v: 7, stylize: 1000 },
-        type: 'image'
+        images: [
+          { id: '5', url: 'https://source.unsplash.com/random/500x500/?nebula,space', type: 'image' },
+          { id: '6', url: 'https://source.unsplash.com/random/500x500/?cosmos,stars', type: 'image' },
+          { id: '7', url: 'https://source.unsplash.com/random/500x500/?face,galaxy', type: 'image' },
+          { id: '8', url: 'https://source.unsplash.com/random/500x500/?stars,cosmos', type: 'image' }
+        ]
       }
     ];
 
-    setOutputs(mockImages);
+    setJobs(mockJobs);
   }, []);
 
   const handlePromptChange = (e) => {
@@ -203,16 +170,14 @@ const CreatePage = () => {
             // Add mock output when done (demo purposes)
             const types = ['image', 'video', 'model'];
             const outType = types[Math.floor(Math.random() * types.length)];
-            const newOutputs = [
-              {
-                id: Date.now().toString(),
-                url: 'https://source.unsplash.com/random/500x500/?galaxy,nebula&' + Date.now(),
-                prompt: prompt,
-                metadata: parameters,
-                type: outType
-              }
-            ];
-            setOutputs(prev => [...newOutputs, ...prev]);
+            const count = Math.floor(Math.random() * 4) + 1;
+            const images = Array.from({ length: count }).map((_, idx) => ({
+              id: `${Date.now()}-${idx}`,
+              url: `https://source.unsplash.com/random/500x500/?galaxy,nebula&${Date.now()}-${idx}`,
+              type: outType
+            }));
+            const newJob = { id: jobId, prompt, metadata: parameters, images };
+            setJobs(prev => [newJob, ...prev]);
             setLoading(false);
             source.close();
             showToast('Generation completed', 'success');
@@ -258,8 +223,9 @@ const CreatePage = () => {
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onload = (ev) => {
-          const img = { id: `drop-${Date.now()}`, url: ev.target?.result, file, type: 'image' };
-          setOutputs((prev) => [img, ...prev]);
+          const img = { id: `drop-${Date.now()}`, url: ev.target?.result, type: 'image', file };
+          const newJob = { id: `drop-job-${Date.now()}`, prompt, metadata: {}, images: [img] };
+          setJobs((prev) => [newJob, ...prev]);
           showToast('Image dropped, starting img2img...', 'info');
           if (prompt.trim()) handleGenerate();
         };
@@ -357,20 +323,26 @@ const CreatePage = () => {
 
       <h2 className="yesterday-header">Yesterday</h2>
 
-      <div className="image-grid">
-        {filteredOutputs.map(out => (
-          <div key={out.id} className="image-card" onClick={() => handleImageClick(out)}>
-            {out.type === 'video' ? (
-              <video src={out.url} className="grid-image" controls preload="metadata" />
-            ) : out.type === 'model' ? (
-              <model-viewer src={out.url} class="grid-image" auto-rotate camera-controls></model-viewer>
-            ) : (
-              <img src={out.url} alt={out.prompt} className="grid-image" loading="lazy" />
-            )}
-            <div className="image-overlay">
-              <div className="image-prompt">{out.prompt.substring(0, 100)}...</div>
+      <div className="job-list">
+        {filteredJobs.map(job => (
+          <div key={job.id} className="job-row">
+            <div className="job-images">
+              {job.images.filter(img => img.url).map(img => (
+                <div key={img.id} className="image-card" onClick={() => handleImageClick(img)}>
+                  {img.type === 'video' ? (
+                    <video src={img.url} className="grid-image" controls preload="metadata" />
+                  ) : img.type === 'model' ? (
+                    <model-viewer src={img.url} class="grid-image" auto-rotate camera-controls></model-viewer>
+                  ) : (
+                    <img src={img.url} alt={job.prompt} className="grid-image" loading="lazy" />
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="job-info">
+              <div className="job-prompt">{job.prompt}</div>
               <div className="image-metadata">
-                {out.metadata && Object.entries(out.metadata).map(([key, value]) => (
+                {job.metadata && Object.entries(job.metadata).map(([key, value]) => (
                   <span key={key} className="metadata-tag">
                     {key === 'chaos' && '🔄'}
                     {key === 'v' && '📏'}
@@ -378,14 +350,6 @@ const CreatePage = () => {
                     {`${key}: ${value}`}
                   </span>
                 ))}
-              </div>
-              <div className="image-toolbar">
-                <button className="image-action" title="Upscale">
-                  ⤒
-                </button>
-                <button className="image-action" title="Zoom">
-                  🔍
-                </button>
               </div>
             </div>
           </div>
