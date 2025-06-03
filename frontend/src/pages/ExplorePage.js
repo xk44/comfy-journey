@@ -7,6 +7,10 @@ import downloadService from '../services/downloadService';
 
 const ExplorePage = () => {
   const [activeTab, setActiveTab] = useState('Images');
+  const [showNsfw, setShowNsfw] = useState(() => {
+    const saved = localStorage.getItem('cj_civitai_show_nsfw');
+    return saved === 'true';
+  });
   const [images, setImages] = useState([]);
   const [models, setModels] = useState([]);
   const [workflows, setWorkflows] = useState([]);
@@ -26,6 +30,11 @@ const ExplorePage = () => {
   const categories = ['Random', 'Hot', 'Top Month', 'Likes'];
   const [activeCategory, setActiveCategory] = useState('Top Month');
 
+  // Persist NSFW preference
+  useEffect(() => {
+    localStorage.setItem('cj_civitai_show_nsfw', showNsfw.toString());
+  }, [showNsfw]);
+
   // Fetch images and models when the page changes
   useEffect(() => {
     const fetchExploreData = async () => {
@@ -36,7 +45,7 @@ const ExplorePage = () => {
           setLoadingMore(true);
         }
 
-        const imagesRes = await civitaiService.getImages({ limit: 20, page });
+        const imagesRes = await civitaiService.getImages({ limit: 20, page, nsfw: showNsfw });
         const modelsRes = await civitaiService.getModels({ limit: 20, page });
         const workflowsRes = await civitaiService.getModels({ limit: 20, page, types: 'Workflow' });
 
@@ -74,7 +83,7 @@ const ExplorePage = () => {
     };
 
     fetchExploreData();
-  }, [page]);
+  }, [page, showNsfw]);
 
   // Observer to trigger loading more images when scrolling near the bottom
   useEffect(() => {

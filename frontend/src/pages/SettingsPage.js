@@ -25,6 +25,10 @@ const SettingsPage = () => {
   });
 
   const [civitaiKey, setCivitaiKey] = useState('');
+  const [civitaiShowNsfw, setCivitaiShowNsfw] = useState(() => {
+    const saved = localStorage.getItem('cj_civitai_show_nsfw');
+    return saved === 'true';
+  });
   const [restoreFile, setRestoreFile] = useState(null);
 
   const [paths, setPaths] = useState({
@@ -76,6 +80,11 @@ const SettingsPage = () => {
       document.body.classList.add('light-theme');
     }
   }, [preferences.darkMode]);
+
+  // Persist NSFW preference
+  useEffect(() => {
+    localStorage.setItem('cj_civitai_show_nsfw', civitaiShowNsfw.toString());
+  }, [civitaiShowNsfw]);
   
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
@@ -424,6 +433,16 @@ const SettingsPage = () => {
                     onChange={(e) => setCivitaiKey(e.target.value)}
                   />
                   <button className="save-button" onClick={handleSaveCivitaiKey}>Save</button>
+                </div>
+                <div className="api-key-value" style={{ marginTop: '0.5rem' }}>
+                  <label className="toggle-label">
+                    <input
+                      type="checkbox"
+                      checked={civitaiShowNsfw}
+                      onChange={(e) => setCivitaiShowNsfw(e.target.checked)}
+                    />
+                    Show NSFW content
+                  </label>
                 </div>
               </div>
             </div>
