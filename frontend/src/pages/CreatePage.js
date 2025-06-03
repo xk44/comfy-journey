@@ -15,6 +15,7 @@ const CreatePage = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [parameterMappings, setParameterMappings] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const {
     history: promptHistory,
     index: historyIndex,
@@ -25,6 +26,19 @@ const CreatePage = () => {
   } = usePromptHistory();
 
   const { currentUser } = useAuth();
+
+  const filteredOutputs = outputs.filter((out) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    const promptText = out.prompt ? out.prompt.toLowerCase() : '';
+    const metaText = out.metadata
+      ? Object.entries(out.metadata)
+          .map(([k, v]) => `--${k} ${v}`)
+          .join(' ')
+          .toLowerCase()
+      : '';
+    return promptText.includes(query) || metaText.includes(query);
+  });
 
   // Load a prompt from Explore page if provided
   useEffect(() => {
@@ -257,6 +271,10 @@ const CreatePage = () => {
     }
   };
 
+  const handleSearch = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
   return (
     <div className="create-page" onDragOver={handleDragOver} onDrop={handleDrop}>
       {toast && (
@@ -318,7 +336,7 @@ const CreatePage = () => {
           </div>
         </div>
       </div>
-      
+
       <div className="category-tabs">
         {categories.map(category => (
           <button
@@ -330,11 +348,33 @@ const CreatePage = () => {
           </button>
         ))}
       </div>
-      
+
+      <div className="search-container" style={{ marginTop: '10px' }}>
+        <input
+          type="text"
+          className="search-input"
+          placeholder="Search jobs..."
+          value={searchQuery}
+          onChange={handleSearch}
+        />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={1.5}
+          stroke="currentColor"
+          className="search-icon"
+          width="20"
+          height="20"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+        </svg>
+      </div>
+
       <h2 className="yesterday-header">Yesterday</h2>
-      
+
       <div className="image-grid">
-        {outputs.map(out => (
+        {filteredOutputs.map(out => (
           <div key={out.id} className="image-card" onClick={() => handleImageClick(out)}>
             {out.type === 'video' ? (
               <video src={out.url} className="grid-image" controls preload="metadata" />
