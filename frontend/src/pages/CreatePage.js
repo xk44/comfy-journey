@@ -19,7 +19,15 @@ const CreatePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState('');
-  const [showModelSelector, setShowModelSelector] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState(() => {
+    try {
+      const prefs = JSON.parse(localStorage.getItem('comfyui_preferences') || '{}');
+      return prefs.defaultAspectRatio || '1:1';
+    } catch (err) {
+      return '1:1';
+    }
+  });
+  const [showParameters, setShowParameters] = useState(false);
   const {
     history: promptHistory,
     index: historyIndex,
@@ -252,6 +260,17 @@ const CreatePage = () => {
     }
   };
 
+  const handleAspectRatioChange = (value) => {
+    setAspectRatio(value);
+    try {
+      const prefs = JSON.parse(localStorage.getItem('comfyui_preferences') || '{}');
+      prefs.defaultAspectRatio = value;
+      localStorage.setItem('comfyui_preferences', JSON.stringify(prefs));
+    } catch (err) {
+      console.error('Failed to save aspect ratio', err);
+    }
+  };
+
   const handleSearch = (e) => {
     setSearchQuery(e.target.value);
   };
@@ -297,35 +316,47 @@ const CreatePage = () => {
               </svg>
             </button>
             
-          <button className="tool-button" title="Parameters">
+          <button
+            className="tool-button"
+            title="Parameters"
+            onClick={() => setShowParameters(!showParameters)}
+          >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
             </svg>
           </button>
-
-          <button
-            className="tool-button"
-            title="Select Model"
-            onClick={() => setShowModelSelector(!showModelSelector)}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" width="18" height="18">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6h15M4.5 12h15m-15 6h15" />
-            </svg>
-          </button>
-
-          {showModelSelector && (
-            <select
-              className="model-select"
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-            >
-              {models.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
+          {showParameters && (
+            <div className="parameters-menu">
+              <div className="form-group">
+                <label>Model</label>
+                <select
+                  className="model-select"
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                >
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Aspect Ratio</label>
+                <select
+                  className="aspect-select"
+                  value={aspectRatio}
+                  onChange={(e) => handleAspectRatioChange(e.target.value)}
+                >
+                  <option value="1:1">Square (1:1)</option>
+                  <option value="16:9">Landscape (16:9)</option>
+                  <option value="9:16">Portrait (9:16)</option>
+                  <option value="4:3">Standard (4:3)</option>
+                  <option value="3:2">Photo (3:2)</option>
+                </select>
+              </div>
+            </div>
           )}
-            
-            <button 
+
+            <button
               className="generate-button"
               onClick={handleGenerate}
               disabled={loading || !prompt.trim()}
