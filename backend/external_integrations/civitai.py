@@ -8,6 +8,7 @@ import os
 import time
 from typing import Any, Dict, Optional, Tuple
 import hashlib
+import urllib.parse
 
 import httpx
 
@@ -85,8 +86,11 @@ async def fetch_json(
         headers["Authorization"] = f"Bearer {api_key}"
 
     url = f"{BASE_URL}{path}"
+    if params:
+        query = urllib.parse.urlencode(params, doseq=True, quote_via=urllib.parse.quote)
+        url = f"{url}?{query}"
     client = await _get_client()
-    resp = await client.get(url, params=params, headers=headers, timeout=10)
+    resp = await client.get(url, headers=headers, timeout=10)
     resp.raise_for_status()
     data = resp.json()
 

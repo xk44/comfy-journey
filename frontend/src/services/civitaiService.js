@@ -42,8 +42,10 @@ const makeRequest = async (endpoint, params = {}) => {
   
   const options = {};
   
+  const finalUrl = url.toString().replace(/\+/g, '%20');
+
   try {
-    const response = await fetch(url.toString(), options);
+    const response = await fetch(finalUrl, options);
 
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
