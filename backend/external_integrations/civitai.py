@@ -24,8 +24,12 @@ async def _get_client() -> httpx.AsyncClient:
 
 # Configuration via environment variables
 BASE_URL = os.environ.get("CIVITAI_BASE_URL", "https://civitai.com/api/v1")
+# Cache configuration
 CACHE_TTL = float(os.environ.get("CIVITAI_CACHE_TTL", "60"))
 MIN_INTERVAL = float(os.environ.get("CIVITAI_MIN_INTERVAL", "1"))
+CACHE_DIR = os.environ.get("CIVITAI_CACHE_DIR")
+if CACHE_DIR:
+    os.makedirs(CACHE_DIR, exist_ok=True)
 
 # In-memory cache
 _CACHE: Dict[str, Tuple[float, Any]] = {}
@@ -62,6 +66,13 @@ async def fetch_json(
     cached = _CACHE.get(key)
     if cached and now - cached[0] < CACHE_TTL:
         return cached[1]
+    if CACHE_DIR:
+        cache_file = os.path.join(CACHE_DIR, hashlib.sha256(key.encode()).hexdigest() + ".json")
+        if os.path.exists(cache_file) and now - os.path.getmtime(cache_file) < CACHE_TTL:
+            with open(cache_file, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            _CACHE[key] = (now, data)
+            return data
 
     wait = MIN_INTERVAL - (now - _last_request_time)
     if wait > 0:
@@ -81,6 +92,13 @@ async def fetch_json(
 
     _last_request_time = time.monotonic()
     _CACHE[key] = (now, data)
+    if CACHE_DIR:
+        cache_file = os.path.join(CACHE_DIR, hashlib.sha256(key.encode()).hexdigest() + ".json")
+        try:
+            with open(cache_file, "w", encoding="utf-8") as fh:
+                json.dump(data, fh)
+        except Exception:
+            pass
     return data
 
 

@@ -83,6 +83,10 @@ class Response:
     def json(self):
         return self._json
 
+    def raise_for_status(self):
+        if not (200 <= self.status_code < 300):
+            raise Exception(f"HTTP {self.status_code}")
+
 
 def _strip_base(url: str) -> str:
     if '/api' in url:
