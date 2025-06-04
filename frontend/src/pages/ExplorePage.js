@@ -91,6 +91,18 @@ const ExplorePage = () => {
   const [videos, setVideos] = useState([]);
   const [models, setModels] = useState([]);
   const [workflows, setWorkflows] = useState([]);
+  const [imgPage, setImgPage] = useState(1);
+  const [vidPage, setVidPage] = useState(1);
+  const [modelPage, setModelPage] = useState(1);
+  const [wfPage, setWfPage] = useState(1);
+  const [imgLoading, setImgLoading] = useState(true);
+  const [vidLoading, setVidLoading] = useState(false);
+  const [modelLoading, setModelLoading] = useState(false);
+  const [wfLoading, setWfLoading] = useState(false);
+  const [imgLoadingMore, setImgLoadingMore] = useState(false);
+  const [vidLoadingMore, setVidLoadingMore] = useState(false);
+  const [modelLoadingMore, setModelLoadingMore] = useState(false);
+  const [wfLoadingMore, setWfLoadingMore] = useState(false);
   const [imgOffsets, setImgOffsets] = useState({});
   const [videoOffsets, setVideoOffsets] = useState({});
   const [wfOffsets, setWfOffsets] = useState({});
@@ -101,10 +113,7 @@ const ExplorePage = () => {
   const [modelVersion, setModelVersion] = useState(0);
   const [modelImage, setModelImage] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
-  const [page, setPage] = useState(1);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [period, setPeriod] = useState(() => localStorage.getItem('cj_period') || 'Day');
   const [sort, setSort] = useState(() => localStorage.getItem('cj_sort') || 'Highest Rated');
   const [baseModel, setBaseModel] = useState(() => localStorage.getItem('cj_base_model') || '');
@@ -144,51 +153,132 @@ const ExplorePage = () => {
     localStorage.setItem('cj_model_type', modelType);
   }, [modelType]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        if (page === 1) {
-          setLoading(true);
-        } else {
-          setLoadingMore(true);
-        }
-        const imgRes = await civitaiService.getImages({ limit: 20, page, nsfw: showNsfw, sort, period, baseModel });
-        const vidRes = await civitaiService.getVideos({ limit: 20, page, nsfw: showNsfw, sort, period, baseModel });
-        const modRes = await civitaiService.getModels({ limit: 20, page, sort, period, types: modelType, baseModel });
-        const wfRes = await civitaiService.getModels({ limit: 20, page, types: 'Workflows', sort, period, baseModel });
-
-        const newImages = imgRes.items || imgRes.data || imgRes;
-        const newVideos = vidRes.items || vidRes.data || vidRes;
-        const newModels = modRes.items || modRes.data || modRes;
-        const newWorkflows = wfRes.items || wfRes.data || wfRes;
-
-        setImages(prev => page === 1 ? newImages : [...prev, ...newImages]);
-        setVideos(prev => page === 1 ? newVideos : [...prev, ...newVideos]);
-        setModels(prev => page === 1 ? newModels : [...prev, ...newModels]);
-        setWorkflows(prev => page === 1 ? newWorkflows : [...prev, ...newWorkflows]);
-        setLoading(false);
-        setLoadingMore(false);
-      } catch (err) {
-        console.error('Error fetching explore data', err);
-        setLoading(false);
-        setLoadingMore(false);
-        showToast('Failed to load explore data. Please try again.', 'error');
+  const fetchImages = async () => {
+    try {
+      if (imgPage === 1) {
+        setImgLoading(true);
+      } else {
+        setImgLoadingMore(true);
       }
-    };
-    fetchData();
-  }, [page, showNsfw, period, sort, baseModel, modelType]);
+      const imgRes = await civitaiService.getImages({ limit: 20, page: imgPage, nsfw: showNsfw, sort, period, baseModel });
+      const newImages = imgRes.items || imgRes.data || imgRes;
+      setImages(prev => imgPage === 1 ? newImages : [...prev, ...newImages]);
+      setImgLoading(false);
+      setImgLoadingMore(false);
+    } catch (err) {
+      console.error('Error fetching images', err);
+      setImgLoading(false);
+      setImgLoadingMore(false);
+      showToast('Failed to load images. Please try again.', 'error');
+    }
+  };
+
+  const fetchVideos = async () => {
+    try {
+      if (vidPage === 1) {
+        setVidLoading(true);
+      } else {
+        setVidLoadingMore(true);
+      }
+      const vidRes = await civitaiService.getVideos({ limit: 20, page: vidPage, nsfw: showNsfw, sort, period, baseModel });
+      const newVideos = vidRes.items || vidRes.data || vidRes;
+      setVideos(prev => vidPage === 1 ? newVideos : [...prev, ...newVideos]);
+      setVidLoading(false);
+      setVidLoadingMore(false);
+    } catch (err) {
+      console.error('Error fetching videos', err);
+      setVidLoading(false);
+      setVidLoadingMore(false);
+      showToast('Failed to load videos. Please try again.', 'error');
+    }
+  };
+
+  const fetchModels = async () => {
+    try {
+      if (modelPage === 1) {
+        setModelLoading(true);
+      } else {
+        setModelLoadingMore(true);
+      }
+      const modRes = await civitaiService.getModels({ limit: 20, page: modelPage, sort, period, types: modelType, baseModel });
+      const newModels = modRes.items || modRes.data || modRes;
+      setModels(prev => modelPage === 1 ? newModels : [...prev, ...newModels]);
+      setModelLoading(false);
+      setModelLoadingMore(false);
+    } catch (err) {
+      console.error('Error fetching models', err);
+      setModelLoading(false);
+      setModelLoadingMore(false);
+      showToast('Failed to load models. Please try again.', 'error');
+    }
+  };
+
+  const fetchWorkflows = async () => {
+    try {
+      if (wfPage === 1) {
+        setWfLoading(true);
+      } else {
+        setWfLoadingMore(true);
+      }
+      const wfRes = await civitaiService.getModels({ limit: 20, page: wfPage, types: 'Workflows', sort, period, baseModel });
+      const newWorkflows = wfRes.items || wfRes.data || wfRes;
+      setWorkflows(prev => wfPage === 1 ? newWorkflows : [...prev, ...newWorkflows]);
+      setWfLoading(false);
+      setWfLoadingMore(false);
+    } catch (err) {
+      console.error('Error fetching workflows', err);
+      setWfLoading(false);
+      setWfLoadingMore(false);
+      showToast('Failed to load workflows. Please try again.', 'error');
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'Images' || images.length === 0) {
+      fetchImages();
+    }
+  }, [imgPage, activeTab, showNsfw, period, sort, baseModel]);
+
+  useEffect(() => {
+    if (activeTab === 'Videos' && (vidPage > 1 || videos.length === 0)) {
+      fetchVideos();
+    }
+  }, [vidPage, activeTab, showNsfw, period, sort, baseModel]);
+
+  useEffect(() => {
+    if (activeTab === 'Models' && (modelPage > 1 || models.length === 0)) {
+      fetchModels();
+    }
+  }, [modelPage, activeTab, sort, period, modelType, baseModel]);
+
+  useEffect(() => {
+    if (activeTab === 'Workflows' && (wfPage > 1 || workflows.length === 0)) {
+      fetchWorkflows();
+    }
+  }, [wfPage, activeTab, sort, period, baseModel]);
+
+  // Lazy load other tabs after initial images loaded
+  useEffect(() => {
+    if (images.length > 0) {
+      if (videos.length === 0) fetchVideos();
+      if (models.length === 0) fetchModels();
+      if (workflows.length === 0) fetchWorkflows();
+    }
+  }, [images]);
 
   useEffect(() => {
     const el = loadMoreRef.current;
     if (!el) return;
     const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && !loadingMore) {
-        setPage(p => p + 1);
-      }
+      if (!entries[0].isIntersecting) return;
+      if (activeTab === 'Images' && !imgLoadingMore) setImgPage(p => p + 1);
+      if (activeTab === 'Videos' && !vidLoadingMore) setVidPage(p => p + 1);
+      if (activeTab === 'Models' && !modelLoadingMore) setModelPage(p => p + 1);
+      if (activeTab === 'Workflows' && !wfLoadingMore) setWfPage(p => p + 1);
     }, { rootMargin: '200px' });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [loadingMore]);
+  }, [activeTab, imgLoadingMore, vidLoadingMore, modelLoadingMore, wfLoadingMore]);
 
   const handleSearch = (e) => setSearchQuery(e.target.value);
   const showToast = (message, type = 'info') => setToast({ message, type });
@@ -219,6 +309,17 @@ const ExplorePage = () => {
       ...prev,
       [index]: ((prev[index] || 0) + dir + list.length) % list.length
     }));
+  };
+
+  const resetPages = () => {
+    setImgPage(1);
+    setVidPage(1);
+    setModelPage(1);
+    setWfPage(1);
+    setImages([]);
+    setVideos([]);
+    setModels([]);
+    setWorkflows([]);
   };
 
   const openItem = async (item, type) => {
@@ -257,7 +358,7 @@ const ExplorePage = () => {
       <div className="filter-group">
         <span>Time Period:</span>
         {PERIOD_OPTIONS.map(o => (
-          <button key={o.value} className={period === o.value ? 'active' : ''} onClick={() => { setPeriod(o.value); setPage(1); setShowSortMenu(false); }}>
+          <button key={o.value} className={period === o.value ? 'active' : ''} onClick={() => { setPeriod(o.value); resetPages(); setShowSortMenu(false); }}>
             {o.label}
           </button>
         ))}
@@ -265,7 +366,7 @@ const ExplorePage = () => {
       <div className="filter-group">
         <span>Sort:</span>
         {SORT_OPTIONS.map(o => (
-          <button key={o} className={sort === o ? 'active' : ''} onClick={() => { setSort(o); setPage(1); setShowSortMenu(false); }}>
+          <button key={o} className={sort === o ? 'active' : ''} onClick={() => { setSort(o); resetPages(); setShowSortMenu(false); }}>
             {o}
           </button>
         ))}
@@ -279,7 +380,7 @@ const ExplorePage = () => {
         <div className="filter-group">
           <span>Model Type:</span>
           {MODEL_TYPES.map(t => (
-            <button key={t} className={modelType === t ? 'active' : ''} onClick={() => { setModelType(modelType === t ? '' : t); setPage(1); }}>
+            <button key={t} className={modelType === t ? 'active' : ''} onClick={() => { setModelType(modelType === t ? '' : t); resetPages(); }}>
               {t}
             </button>
           ))}
@@ -288,7 +389,7 @@ const ExplorePage = () => {
       <div className="filter-group">
         <span>Base Model:</span>
         {BASE_MODELS.map(b => (
-          <button key={b} className={baseModel === b ? 'active' : ''} onClick={() => { setBaseModel(baseModel === b ? '' : b); setPage(1); }}>
+          <button key={b} className={baseModel === b ? 'active' : ''} onClick={() => { setBaseModel(baseModel === b ? '' : b); resetPages(); }}>
             {b}
           </button>
         ))}
@@ -303,7 +404,7 @@ const ExplorePage = () => {
       <div className="explore-header">
         <div className="explore-tabs">
           {['Images','Videos','Models','Workflows'].map(tab => (
-            <button key={tab} className={`explore-tab ${activeTab===tab?'active':''}`} onClick={() => { setActiveTab(tab); setPage(1); }}>
+            <button key={tab} className={`explore-tab ${activeTab===tab?'active':''}`} onClick={() => setActiveTab(tab)}>
               {tab}
             </button>
           ))}
@@ -323,7 +424,7 @@ const ExplorePage = () => {
       </div>
       {activeTab === 'Images' && (
         <>
-          {loading ? (
+          {imgLoading ? (
             <div className="loading-container"><div className="spinner"></div></div>
           ) : filteredImages.length === 0 ? (
             <div className="empty-state"><h2>No Results Found</h2><p>Try adjusting your search query</p></div>
@@ -352,7 +453,7 @@ const ExplorePage = () => {
       )}
       {activeTab === 'Videos' && (
         <>
-          {loading ? (
+          {vidLoading ? (
             <div className="loading-container"><div className="spinner"></div></div>
           ) : filteredVideos.length === 0 ? (
             <div className="empty-state"><h2>No Results Found</h2><p>Try adjusting your search query</p></div>
@@ -380,7 +481,7 @@ const ExplorePage = () => {
       )}
       {activeTab === 'Models' && (
         <>
-          {loading ? (
+          {modelLoading ? (
             <div className="loading-container"><div className="spinner"></div></div>
           ) : filteredModels.length === 0 ? (
             <div className="empty-state"><h2>No Models Found</h2><p>Try adjusting your search query</p></div>
@@ -412,7 +513,7 @@ const ExplorePage = () => {
       )}
       {activeTab === 'Workflows' && (
         <>
-          {loading ? (
+          {wfLoading ? (
             <div className="loading-container"><div className="spinner"></div></div>
           ) : filteredWorkflows.length === 0 ? (
             <div className="empty-state"><h2>No Workflows Found</h2><p>Try adjusting your search query</p></div>
