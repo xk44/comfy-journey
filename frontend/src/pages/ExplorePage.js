@@ -91,6 +91,15 @@ const ExplorePage = () => {
   const [videos, setVideos] = useState([]);
   const [models, setModels] = useState([]);
   const [workflows, setWorkflows] = useState([]);
+  const [imgOffsets, setImgOffsets] = useState({});
+  const [videoOffsets, setVideoOffsets] = useState({});
+  const [wfOffsets, setWfOffsets] = useState({});
+  const [modelOffsets, setModelOffsets] = useState({});
+  const [selected, setSelected] = useState(null);
+  const [selectedType, setSelectedType] = useState('');
+  const [modelDetail, setModelDetail] = useState(null);
+  const [modelVersion, setModelVersion] = useState(0);
+  const [modelImage, setModelImage] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -205,6 +214,35 @@ const ExplorePage = () => {
     }
   };
 
+  const cycle = (list, offsets, setOffsets, index, dir) => {
+    setOffsets(prev => ({
+      ...prev,
+      [index]: ((prev[index] || 0) + dir + list.length) % list.length
+    }));
+  };
+
+  const openItem = async (item, type) => {
+    if (type === 'model') {
+      try {
+        const detail = await civitaiService.getModel(item.id);
+        setModelDetail(detail);
+        setModelVersion(0);
+        setModelImage(0);
+      } catch (err) {
+        console.error('Failed to fetch model', err);
+        return;
+      }
+    }
+    setSelected(item);
+    setSelectedType(type);
+  };
+
+  const closeModal = () => {
+    setSelected(null);
+    setSelectedType('');
+    setModelDetail(null);
+  };
+
   const filtered = (arr, fields) => arr.filter(item =>
     fields.some(f => (item[f] || '').toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -291,15 +329,22 @@ const ExplorePage = () => {
             <div className="empty-state"><h2>No Results Found</h2><p>Try adjusting your search query</p></div>
           ) : (
             <div className="image-grid explore-grid">
-              {filteredImages.map(img => (
-                <div key={img.id} className="image-card" onClick={() => window.open(`https://civitai.com/images/${img.id}`, '_blank')}>
-                  <img src={img.url} alt={img.prompt} className="grid-image" loading="lazy" />
-                  <button className="use-prompt-button" onClick={e => { e.stopPropagation(); handleUsePrompt(img); }}>Use Prompt</button>
-                  <div className="image-info">
-                    <div className="image-prompt">{img.prompt}</div>
+              {filteredImages.map((img, idx) => {
+                const displayImg = filteredImages[(idx + (imgOffsets[idx] || 0) + filteredImages.length) % filteredImages.length];
+                return (
+                  <div key={idx} className="image-card" onClick={() => openItem(displayImg, 'image')}>
+                    <img src={displayImg.url} alt={displayImg.prompt} className="grid-image" loading="lazy" />
+                    <button className="use-prompt-button" onClick={e => { e.stopPropagation(); handleUsePrompt(displayImg); }}>Use Prompt</button>
+                    <div className="card-controls">
+                      <button onClick={e => { e.stopPropagation(); cycle(filteredImages, imgOffsets, setImgOffsets, idx, -1); }}>&lt;</button>
+                      <button onClick={e => { e.stopPropagation(); cycle(filteredImages, imgOffsets, setImgOffsets, idx, 1); }}>&gt;</button>
+                    </div>
+                    <div className="image-info">
+                      <div className="image-prompt">{displayImg.prompt}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <div ref={loadMoreRef} style={{ height: 1 }}></div>
             </div>
           )}
@@ -313,14 +358,21 @@ const ExplorePage = () => {
             <div className="empty-state"><h2>No Results Found</h2><p>Try adjusting your search query</p></div>
           ) : (
             <div className="image-grid explore-grid">
-              {filteredVideos.map(v => (
-                <div key={v.id} className="image-card" onClick={() => window.open(`https://civitai.com/images/${v.id}`, '_blank')}>
-                  <video src={v.url} className="grid-image" controls preload="metadata" />
-                  <div className="image-info">
-                    <div className="image-prompt">{v.prompt}</div>
+              {filteredVideos.map((v, idx) => {
+                const displayVid = filteredVideos[(idx + (videoOffsets[idx] || 0) + filteredVideos.length) % filteredVideos.length];
+                return (
+                  <div key={idx} className="image-card" onClick={() => openItem(displayVid, 'video')}>
+                    <video src={displayVid.url} className="grid-image" controls preload="metadata" />
+                    <div className="card-controls">
+                      <button onClick={e => { e.stopPropagation(); cycle(filteredVideos, videoOffsets, setVideoOffsets, idx, -1); }}>&lt;</button>
+                      <button onClick={e => { e.stopPropagation(); cycle(filteredVideos, videoOffsets, setVideoOffsets, idx, 1); }}>&gt;</button>
+                    </div>
+                    <div className="image-info">
+                      <div className="image-prompt">{displayVid.prompt}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <div ref={loadMoreRef} style={{ height: 1 }}></div>
             </div>
           )}
@@ -334,19 +386,26 @@ const ExplorePage = () => {
             <div className="empty-state"><h2>No Models Found</h2><p>Try adjusting your search query</p></div>
           ) : (
             <div className="models-grid">
-              {filteredModels.map(model => (
-                <div key={model.id} className="model-card" onClick={() => window.open(`https://civitai.com/models/${model.id}`, '_blank')}>
-                  <div className="model-header">
-                    <h3 className="model-name">{model.name}</h3>
+              {filteredModels.map((model, idx) => {
+                const displayModel = filteredModels[(idx + (modelOffsets[idx] || 0) + filteredModels.length) % filteredModels.length];
+                return (
+                  <div key={idx} className="model-card" onClick={() => openItem(displayModel, 'model')}>
+                    <div className="model-header">
+                      <h3 className="model-name">{displayModel.name}</h3>
+                    </div>
+                    <p className="model-description">{displayModel.description}</p>
+                    <div className="model-meta">
+                      <span className="model-creator">By @{displayModel.creator}</span>
+                      <span className="model-downloads">{displayModel.downloads}</span>
+                    </div>
+                    <div className="card-controls">
+                      <button onClick={e => { e.stopPropagation(); cycle(filteredModels, modelOffsets, setModelOffsets, idx, -1); }}>&lt;</button>
+                      <button onClick={e => { e.stopPropagation(); cycle(filteredModels, modelOffsets, setModelOffsets, idx, 1); }}>&gt;</button>
+                    </div>
+                    <button className="download-model-button" onClick={e => { e.stopPropagation(); handleDownloadModel(displayModel); }}>Download</button>
                   </div>
-                  <p className="model-description">{model.description}</p>
-                  <div className="model-meta">
-                    <span className="model-creator">By @{model.creator}</span>
-                    <span className="model-downloads">{model.downloads}</span>
-                  </div>
-                  <button className="download-model-button" onClick={e => { e.stopPropagation(); handleDownloadModel(model); }}>Download</button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
@@ -359,16 +418,70 @@ const ExplorePage = () => {
             <div className="empty-state"><h2>No Workflows Found</h2><p>Try adjusting your search query</p></div>
           ) : (
             <div className="models-grid">
-              {filteredWorkflows.map(wf => (
-                <div key={wf.id} className="model-card" onClick={() => window.open(`https://civitai.com/models/${wf.id}`, '_blank')}>
-                  <div className="model-header"><h3 className="model-name">{wf.name}</h3></div>
-                  <p className="model-description">{wf.description}</p>
-                  <button className="download-model-button" onClick={e => { e.stopPropagation(); handleDownloadModel(wf); }}>Download</button>
-                </div>
-              ))}
+              {filteredWorkflows.map((wf, idx) => {
+                const displayWf = filteredWorkflows[(idx + (wfOffsets[idx] || 0) + filteredWorkflows.length) % filteredWorkflows.length];
+                return (
+                  <div key={idx} className="model-card" onClick={() => openItem(displayWf, 'workflow')}>
+                    <div className="model-header"><h3 className="model-name">{displayWf.name}</h3></div>
+                    <p className="model-description">{displayWf.description}</p>
+                    <div className="card-controls">
+                      <button onClick={e => { e.stopPropagation(); cycle(filteredWorkflows, wfOffsets, setWfOffsets, idx, -1); }}>&lt;</button>
+                      <button onClick={e => { e.stopPropagation(); cycle(filteredWorkflows, wfOffsets, setWfOffsets, idx, 1); }}>&gt;</button>
+                    </div>
+                    <button className="download-model-button" onClick={e => { e.stopPropagation(); handleDownloadModel(displayWf); }}>Download</button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </>
+      )}
+      {selected && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            {selectedType === 'image' && (
+              <>
+                <img src={selected.url} alt={selected.prompt} className="modal-media" />
+                <div className="modal-info">
+                  <p>{selected.prompt}</p>
+                  <div className="modal-actions">
+                    <button onClick={() => { handleUsePrompt(selected); closeModal(); }}>Use Prompt</button>
+                  </div>
+                </div>
+              </>
+            )}
+            {selectedType === 'video' && (
+              <>
+                <video src={selected.url} className="modal-media" controls autoPlay />
+                <div className="modal-info">
+                  <p>{selected.prompt}</p>
+                  <div className="modal-actions">
+                    <button onClick={() => { handleUsePrompt(selected); closeModal(); }}>Use Prompt</button>
+                  </div>
+                </div>
+              </>
+            )}
+            {selectedType === 'model' && modelDetail && (
+              <>
+                {modelDetail.modelVersions && modelDetail.modelVersions.length > 0 && (
+                  <img src={modelDetail.modelVersions[modelVersion].images[modelImage].url} alt={modelDetail.name} className="modal-media" />
+                )}
+                <div className="modal-info">
+                  <div className="version-controls">
+                    <button onClick={() => setModelVersion(v => (v - 1 + modelDetail.modelVersions.length) % modelDetail.modelVersions.length)}>&lt;</button>
+                    <span>{modelDetail.name} - {modelDetail.modelVersions[modelVersion].name}</span>
+                    <button onClick={() => setModelVersion(v => (v + 1) % modelDetail.modelVersions.length)}>&gt;</button>
+                    <button onClick={() => handleDownloadModel(modelDetail)}>Download</button>
+                  </div>
+                  <div className="version-controls">
+                    <button onClick={() => setModelImage(i => (i - 1 + modelDetail.modelVersions[modelVersion].images.length) % modelDetail.modelVersions[modelVersion].images.length)}>&lt;</button>
+                    <button onClick={() => setModelImage(i => (i + 1) % modelDetail.modelVersions[modelVersion].images.length)}>&gt;</button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
