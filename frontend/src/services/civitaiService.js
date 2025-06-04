@@ -27,10 +27,11 @@ export const setApiKey = async (apiKey) => {
 const makeRequest = async (endpoint, params = {}) => {
   const url = new URL(`${CIVITAI_API_URL}${endpoint}`);
   
-  // Add params to URL
+  // Add params to URL, skipping empty strings to avoid invalid requests
   Object.keys(params).forEach(key => {
-    if (params[key] !== undefined && params[key] !== null) {
-      url.searchParams.append(key, params[key]);
+    const value = params[key];
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.append(key, value);
     }
   });
   
