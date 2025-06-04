@@ -292,7 +292,7 @@ const ExplorePage = () => {
           ) : (
             <div className="image-grid explore-grid">
               {filteredImages.map(img => (
-                <div key={img.id} className="image-card" onClick={() => console.log('Image clicked', img)}>
+                <div key={img.id} className="image-card" onClick={() => window.open(`https://civitai.com/images/${img.id}`, '_blank')}>
                   <img src={img.url} alt={img.prompt} className="grid-image" loading="lazy" />
                   <button className="use-prompt-button" onClick={e => { e.stopPropagation(); handleUsePrompt(img); }}>Use Prompt</button>
                   <div className="image-info">
@@ -314,7 +314,7 @@ const ExplorePage = () => {
           ) : (
             <div className="image-grid explore-grid">
               {filteredVideos.map(v => (
-                <div key={v.id} className="image-card">
+                <div key={v.id} className="image-card" onClick={() => window.open(`https://civitai.com/images/${v.id}`, '_blank')}>
                   <video src={v.url} className="grid-image" controls preload="metadata" />
                   <div className="image-info">
                     <div className="image-prompt">{v.prompt}</div>
@@ -335,7 +335,7 @@ const ExplorePage = () => {
           ) : (
             <div className="models-grid">
               {filteredModels.map(model => (
-                <div key={model.id} className="model-card" onClick={() => console.log('Model clicked', model)}>
+                <div key={model.id} className="model-card" onClick={() => window.open(`https://civitai.com/models/${model.id}`, '_blank')}>
                   <div className="model-header">
                     <h3 className="model-name">{model.name}</h3>
                   </div>
@@ -360,7 +360,7 @@ const ExplorePage = () => {
           ) : (
             <div className="models-grid">
               {filteredWorkflows.map(wf => (
-                <div key={wf.id} className="model-card" onClick={() => console.log('Workflow clicked', wf)}>
+                <div key={wf.id} className="model-card" onClick={() => window.open(`https://civitai.com/models/${wf.id}`, '_blank')}>
                   <div className="model-header"><h3 className="model-name">{wf.name}</h3></div>
                   <p className="model-description">{wf.description}</p>
                   <button className="download-model-button" onClick={e => { e.stopPropagation(); handleDownloadModel(wf); }}>Download</button>
