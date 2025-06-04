@@ -23,12 +23,15 @@ See `todo.txt` for the full list of implemented tasks.
 - Python 3.11+
 - Yarn
 - A running ComfyUI server
+- MongoDB 6+ running locally (or set `MONGO_URL` to an external instance)
 
 ### Quick start on Windows
 
 Run `launch.bat` from a command prompt. The script installs dependencies,
 builds the frontend and then starts both the backend API and a local web
 server.
+Ensure a MongoDB server is available on `localhost:27017` (or update
+the `MONGO_URL` environment variable).
 
 ### Manual setup (Linux/macOS)
 
@@ -37,6 +40,13 @@ server.
 ```bash
 cd backend
 pip install -r requirements.txt
+```
+Make sure a MongoDB server is installed and running on `localhost:27017`.
+You can download it from https://www.mongodb.com/try/download/community or
+start one via Docker:
+
+```bash
+docker run -d -p 27017:27017 mongo
 ```
 
 2. Install and build the frontend:
@@ -52,6 +62,7 @@ yarn build
 ```bash
 export COMFYUI_BASE_URL=http://localhost:8188
 export DATABASE_URL=sqlite:///./comfy.db
+export MONGO_URL=mongodb://localhost:27017
 export SECRET_KEY=change-me
 export CIVITAI_API_KEY=<your-key>
 # URL where the FastAPI backend is reachable
