@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, AsyncIterator
 
 import requests
+import httpx
 from cryptography.fernet import Fernet
 from fastapi import (
     APIRouter,
@@ -828,7 +829,14 @@ async def civitai_videos(request: Request, limit: int = 20, page: int = 1):
     params = dict(request.query_params)
     params.setdefault("limit", str(limit))
     params.setdefault("page", str(page))
-    data = await civitai_fetch("/videos", params=params, api_key=api_key)
+    params.setdefault("types", "Video")
+    try:
+        data = await civitai_fetch("/videos", params=params, api_key=api_key)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            data = await civitai_fetch("/images", params=params, api_key=api_key)
+        else:
+            raise
     return api_response(data)
 
 

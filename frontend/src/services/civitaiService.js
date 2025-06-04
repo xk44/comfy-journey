@@ -138,7 +138,8 @@ export const getVideos = async ({
   if (query) {
     params.query = query;
   }
-  return makeRequest('/videos', params);
+  params.types = 'Video';
+  return makeRequest('/images', params);
 };
 
 // Get specific model
