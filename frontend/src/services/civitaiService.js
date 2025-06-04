@@ -30,7 +30,12 @@ const makeRequest = async (endpoint, params = {}) => {
   // Add params to URL, skipping empty strings to avoid invalid requests
   Object.keys(params).forEach(key => {
     const value = params[key];
-    if (value !== undefined && value !== null && value !== '') {
+    if (value === undefined || value === null || value === '') {
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach(v => url.searchParams.append(`${key}[]`, v));
+    } else {
       url.searchParams.append(key, value);
     }
   });
