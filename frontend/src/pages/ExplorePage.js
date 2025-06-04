@@ -13,7 +13,7 @@ const PERIOD_OPTIONS = [
   { label: 'All Time', value: 'AllTime' }
 ];
 
-const SORT_OPTIONS = [
+const SORT_OPTIONS_MODELS = [
   'Highest Rated',
   'Most Downloaded',
   'Most Liked',
@@ -22,6 +22,15 @@ const SORT_OPTIONS = [
   'Most Images',
   'Newest',
   'Oldest'
+];
+
+const SORT_OPTIONS_MEDIA = [
+  'Most Reactions',
+  'Most Comments',
+  'Most Collected',
+  'Newest',
+  'Oldest',
+  'Random'
 ];
 
 const MODEL_TYPES = [
@@ -115,7 +124,7 @@ const ExplorePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [toast, setToast] = useState(null);
   const [period, setPeriod] = useState(() => localStorage.getItem('cj_period') || 'Day');
-  const [sort, setSort] = useState(() => localStorage.getItem('cj_sort') || 'Highest Rated');
+  const [sort, setSort] = useState(() => localStorage.getItem('cj_sort') || 'Most Reactions');
   const [baseModel, setBaseModel] = useState(() => localStorage.getItem('cj_base_model') || '');
   const [modelType, setModelType] = useState(() => localStorage.getItem('cj_model_type') || '');
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -123,6 +132,18 @@ const ExplorePage = () => {
   const loadMoreRef = useRef(null);
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+
+  const getSortOptions = () => {
+    if (activeTab === 'Models' || activeTab === 'Workflows') return SORT_OPTIONS_MODELS;
+    return SORT_OPTIONS_MEDIA;
+  };
+
+  useEffect(() => {
+    const opts = getSortOptions();
+    if (!opts.includes(sort)) {
+      setSort(opts[0]);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     const close = () => {
@@ -365,7 +386,7 @@ const ExplorePage = () => {
       </div>
       <div className="filter-group">
         <span>Sort:</span>
-        {SORT_OPTIONS.map(o => (
+        {getSortOptions().map(o => (
           <button key={o} className={sort === o ? 'active' : ''} onClick={() => { setSort(o); resetPages(); setShowSortMenu(false); }}>
             {o}
           </button>
