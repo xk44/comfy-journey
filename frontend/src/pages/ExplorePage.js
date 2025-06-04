@@ -26,15 +26,15 @@ const SORT_OPTIONS = [
 
 const MODEL_TYPES = [
   'Checkpoint',
-  'Embedding',
+  'TextualInversion',
   'Hypernetwork',
-  'Aesthetic Gradient',
-  'LoRA',
-  'LyCORIS',
+  'AestheticGradient',
+  'LORA',
+  'LoCon',
   'DoRA',
   'Controlnet',
   'Upscaler',
-  'Motion',
+  'MotionModule',
   'VAE',
   'Poses',
   'Wildcards',
@@ -155,7 +155,7 @@ const ExplorePage = () => {
         const imgRes = await civitaiService.getImages({ limit: 20, page, nsfw: showNsfw, sort, period, baseModel });
         const vidRes = await civitaiService.getVideos({ limit: 20, page, nsfw: showNsfw, sort, period, baseModel });
         const modRes = await civitaiService.getModels({ limit: 20, page, sort, period, types: modelType, baseModel });
-        const wfRes = await civitaiService.getModels({ limit: 20, page, types: 'Workflow', sort, period, baseModel });
+        const wfRes = await civitaiService.getModels({ limit: 20, page, types: 'Workflows', sort, period, baseModel });
 
         const newImages = imgRes.items || imgRes.data || imgRes;
         const newVideos = vidRes.items || vidRes.data || vidRes;
