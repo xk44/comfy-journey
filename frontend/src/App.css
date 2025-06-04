@@ -1492,3 +1492,70 @@ button:disabled {
   align-items: center;
 }
 
+/* Explore page extras */
+.card-controls {
+  display: none;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.image-card:hover .card-controls,
+.model-card:hover .card-controls {
+  display: flex;
+}
+
+.card-controls button {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg-card);
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+  display: flex;
+  gap: 20px;
+}
+
+.modal-media {
+  max-width: 60vw;
+  max-height: 80vh;
+}
+
+.modal-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.version-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
