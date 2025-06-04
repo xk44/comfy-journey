@@ -2,7 +2,7 @@
 // Requests are proxied through the backend which handles authentication and
 // caching.  The base URL therefore points to our own API.
 const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
-const CIVITAI_API_URL = `${API_URL}/api/civitai`;
+const CIVITAI_API_URL = `${API_URL}/api/v1`;
 
 // API key is stored securely on the backend. These helpers
 // allow the frontend to set the key without persisting it locally.
@@ -11,7 +11,7 @@ let CIVITAI_API_KEY = '';
 export const setApiKey = async (apiKey) => {
   CIVITAI_API_KEY = apiKey;
   try {
-    await fetch('/api/civitai/key', {
+    await fetch('/api/v1/key', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ api_key: apiKey })
@@ -188,7 +188,7 @@ export const uploadImage = async (imageUrl, promptText, workflowId) => {
 // Check if API key is valid
 export const checkApiKey = async () => {
   try {
-    const res = await fetch('/api/civitai/key');
+    const res = await fetch('/api/v1/key');
     if (!res.ok) return false;
     const data = await res.json();
     return data.payload && data.payload.key_set;

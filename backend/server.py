@@ -799,19 +799,19 @@ async def comfyui_restart(request: Request):
 # ---------------------------------------------------------------------------
 
 
-@api_router.post("/civitai/key")
+@api_router.post("/v1/key")
 async def set_civitai_key(key: CivitaiKey):
     await store_civitai_key(key.api_key)
     return api_response({"message": "API key saved"})
 
 
-@api_router.get("/civitai/key")
+@api_router.get("/v1/key")
 async def has_civitai_key():
     key = await get_civitai_key()
     return api_response({"key_set": bool(key)})
 
 
-@api_router.get("/civitai/images")
+@api_router.get("/v1/images")
 async def civitai_images(request: Request, limit: int = 20, page: int = 1):
     """Proxy to Civitai image search forwarding all query parameters."""
     api_key = await get_civitai_key()
@@ -822,7 +822,7 @@ async def civitai_images(request: Request, limit: int = 20, page: int = 1):
     return api_response(data)
 
 
-@api_router.get("/civitai/videos")
+@api_router.get("/v1/videos")
 async def civitai_videos(request: Request, limit: int = 20, page: int = 1):
     """Proxy to Civitai video search forwarding all query parameters."""
     api_key = await get_civitai_key()
@@ -840,7 +840,7 @@ async def civitai_videos(request: Request, limit: int = 20, page: int = 1):
     return api_response(data)
 
 
-@api_router.get("/civitai/models")
+@api_router.get("/v1/models")
 async def civitai_models(request: Request, limit: int = 20, page: int = 1):
     """Proxy to Civitai model search forwarding all query parameters."""
     api_key = await get_civitai_key()
@@ -851,7 +851,7 @@ async def civitai_models(request: Request, limit: int = 20, page: int = 1):
     return api_response(data)
 
 
-@api_router.get("/civitai/models/{model_id}")
+@api_router.get("/v1/models/{model_id}")
 async def civitai_model_detail(model_id: str, request: Request):
     """Proxy to fetch a specific model by ID from Civitai."""
     api_key = await get_civitai_key()
@@ -860,7 +860,7 @@ async def civitai_model_detail(model_id: str, request: Request):
     return api_response(data)
 
 
-@api_router.get("/civitai/tags")
+@api_router.get("/v1/tags")
 async def civitai_tags(request: Request):
     """Proxy to Civitai tags endpoint forwarding all query parameters."""
     api_key = await get_civitai_key()
