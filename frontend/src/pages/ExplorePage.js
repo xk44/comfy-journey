@@ -365,9 +365,22 @@ const ExplorePage = () => {
     setModelDetail(null);
   };
 
-  const filtered = (arr, fields) => arr.filter(item =>
-    fields.some(f => (item[f] || '').toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const getFieldString = (obj, field) => {
+    const val = obj[field];
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'object' && val.username) return val.username;
+    return String(val);
+  };
+
+  const filtered = (arr, fields) =>
+    arr.filter(item =>
+      fields.some(f =>
+        getFieldString(item, f)
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())
+      )
+    );
 
   const filteredImages = filtered(images, ['prompt', 'username']);
   const filteredVideos = filtered(videos, ['prompt', 'username']);
@@ -517,7 +530,7 @@ const ExplorePage = () => {
                     </div>
                     <p className="model-description">{displayModel.description}</p>
                     <div className="model-meta">
-                      <span className="model-creator">By @{displayModel.creator}</span>
+                      <span className="model-creator">By @{displayModel.creator?.username || displayModel.creator}</span>
                       <span className="model-downloads">{displayModel.downloads}</span>
                     </div>
                     <div className="card-controls">
